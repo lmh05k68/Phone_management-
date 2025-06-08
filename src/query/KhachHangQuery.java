@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class KhachHangQuery {
+    // ... (các phương thức insert, exists, getCustomersWithAccounts, searchCustomersWithAccounts, getKhachHangById đã có) ...
     public static boolean insert(KhachHang kh) {
         String sql = "INSERT INTO khachhang (makh, hoten, sdtkh, sodiemtichluy) VALUES (?, ?, ?, ?)";
         System.out.println("DEBUG KH_QUERY (static insert): Chuẩn bị insert KhachHang: MaKH=" + kh.getMaKH());
@@ -60,8 +61,8 @@ public class KhachHangQuery {
     public static List<KhachHang> getCustomersWithAccounts() {
         List<KhachHang> list = new ArrayList<>();
         String sql = "SELECT kh.* FROM khachhang kh " +
-                     "JOIN taikhoan tk ON kh.makh = tk.madoituong " + 
-                     "WHERE tk.vaitro = 'khachhang'"; 
+                     "JOIN taikhoan tk ON kh.makh = tk.madoituong " +
+                     "WHERE tk.vaitro = 'khachhang'";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
@@ -86,7 +87,7 @@ public class KhachHangQuery {
         String sql = "SELECT kh.* FROM khachhang kh " +
                      "JOIN taikhoan tk ON kh.makh = tk.madoituong " +
                      "WHERE tk.vaitro = 'khachhang' " +
-                     "AND (kh.hoten ILIKE ? OR kh.sdtkh ILIKE ?)";
+                     "AND (kh.hoten ILIKE ? OR kh.sdtkh ILIKE ?)"; // Sử dụng ILIKE cho case-insensitive
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             String likeKeyword = "%" + keyword + "%";
@@ -110,7 +111,7 @@ public class KhachHangQuery {
         return list;
     }
 
-    public static KhachHang getKhachHangById(String maKH) { // Sửa lại tên phương thức cho nhất quán
+    public static KhachHang getKhachHangById(String maKH) {
         String sql = "SELECT makh, hoten, sdtkh, sodiemtichluy FROM khachhang WHERE makh = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -131,7 +132,7 @@ public class KhachHangQuery {
         }
         return null;
     }
-    public KhachHang getKhachHangByMaKH(String maKH) {
+    public KhachHang getKhachHangByMaKH(String maKH) { // Giữ lại để tương thích nếu có nơi gọi
         return getKhachHangById(maKH);
     }
 
@@ -174,6 +175,27 @@ public class KhachHangQuery {
         }
     }
 
+    public boolean resetDiemTichLuy(String maKH) {
+        String sql = "UPDATE khachhang SET sodiemtichluy = 0 WHERE makh = ?";
+        System.out.println("DEBUG KHACHHANG_QUERY: Reset điểm tích lũy về 0 cho MaKH " + maKH);
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, maKH);
+            int rowsAffected = stmt.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("DEBUG KHACHHANG_QUERY: Reset điểm thành công cho MaKH " + maKH);
+                return true;
+            } else {
+                System.err.println("DEBUG KHACHHANG_QUERY: Không tìm thấy MaKH " + maKH + " để reset điểm.");
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi SQL khi reset điểm tích lũy cho MaKH " + maKH + ": " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public int getSoDiemTichLuy(String maKH) {
         String sql = "SELECT sodiemtichluy FROM khachhang WHERE makh = ?";
         try (Connection conn = DBConnection.getConnection();
@@ -183,12 +205,18 @@ public class KhachHangQuery {
             if (rs.next()) {
                 return rs.getInt("sodiemtichluy");
             } else {
-                return 0;
+                 System.out.println("DEBUG KHACHHANG_QUERY: Không tìm thấy MaKH " + maKH + " hoặc không có điểm.");
+                return 0; 
             }
         } catch (SQLException e) {
             System.err.println("Lỗi SQL khi lấy số điểm tích lũy cho MaKH " + maKH + ": " + e.getMessage());
             e.printStackTrace();
-            return -1;
+            return -1; 
         }
+    }
+    public int tinhPhanTramGiamTuDiem(String maKH) {
+        int tongDiem = getSoDiemTichLuy(maKH);
+        if (tongDiem <= 0) return 0;
+        return Math.min(tongDiem / 100, 20);
     }
 }

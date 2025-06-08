@@ -5,14 +5,12 @@ import java.util.List;
 
 public class HoaDonXuat {
     private String maHDX;
-    private LocalDate ngayLap; // Nên dùng LocalDate
+    private LocalDate ngayLap; 
     private double thanhTien;
     private double mucThue;
     private String maNV;
     private String maKH;
     private List<ChiTietHDXuat> chiTietList;
-
-    // Constructor cơ bản
     public HoaDonXuat(String maHDX, LocalDate ngayLap, double thanhTien, double mucThue, String maNV, String maKH) {
         this.maHDX = maHDX;
         this.ngayLap = ngayLap;

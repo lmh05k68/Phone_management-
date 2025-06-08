@@ -107,24 +107,12 @@ public class RedeemPointsView extends JFrame {
     private void showDiscountInfo() {
         System.out.println("REDEEM_VIEW: Kiểm tra mức giảm giá cho MaKH: " + maKH);
         try {
-            int tongDiem = khachHangQuery.getSoDiemTichLuy(maKH); // << SỬ DỤNG PHƯƠNG THỨC MỚI
-            if (tongDiem == -1) {
-                 lblDiscountResult.setText("Lỗi tải điểm hoặc KH không tồn tại.");
-                 return;
-            }
-            if (tongDiem <= 0) {
+            int phanTramGiam = khachHangQuery.tinhPhanTramGiamTuDiem(maKH);
+            if (phanTramGiam <= 0) {
                 lblDiscountResult.setText("Bạn chưa có điểm để đổi ưu đãi.");
-                return;
+            } else {
+                lblDiscountResult.setText("Bạn có thể được giảm " + phanTramGiam + "% cho đơn hàng kế tiếp!");
             }
-
-            // Logic đổi điểm ví dụ: 1 điểm = 1% giảm giá, tối đa 20%
-            int phanTramGiam = Math.min(tongDiem, 20); // Giới hạn % giảm giá
-            // Hoặc 100 điểm = 1% giảm, tối đa 20%
-            // int phanTramGiam = Math.min(tongDiem / 100, 20);
-
-
-            lblDiscountResult.setText("Bạn có thể được giảm " + phanTramGiam + "% cho đơn hàng kế tiếp!");
-
         } catch (Exception e) {
             lblDiscountResult.setText("Đã xảy ra lỗi khi tính mức giảm giá.");
             e.printStackTrace();
