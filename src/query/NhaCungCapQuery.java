@@ -113,4 +113,51 @@ public class NhaCungCapQuery {
 
         return list;
     }
+    public boolean isMaNCCExists(String maNCC) {
+        String sql = "SELECT COUNT(*) FROM nha_cung_cap WHERE ma_ncc = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            
+            ps.setString(1, maNCC);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    public List<String> getDistinctProvinces() {
+        List<String> provinces = new ArrayList<>();
+        String sql = "SELECT DISTINCT DiaChi FROM NhaCungCap";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                provinces.add(rs.getString("DiaChi"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return provinces;
+    }
+
+    public List<String> getDistinctPhonePrefixes() {
+        List<String> prefixes = new ArrayList<>();
+        String sql = "SELECT DISTINCT LEFT(SdtNCC, 3) AS prefix FROM NhaCungCap";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                prefixes.add(rs.getString("prefix"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return prefixes;
+    }
 }
