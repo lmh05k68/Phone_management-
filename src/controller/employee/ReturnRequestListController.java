@@ -6,14 +6,12 @@ import view.employee.ReturnRequestListView;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
-import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter; 
 import java.util.List;
-// import java.util.TimeZone; // Bỏ comment nếu muốn dùng TimeZone
 
 public class ReturnRequestListController {
     private ReturnRequestListView view;
-    private SimpleDateFormat dateFormat;
-
+    private DateTimeFormatter dateTimeFormatter; 
     public static final String STATUS_APPROVED = "Đã duyệt";
     public static final String STATUS_REJECTED = "Từ chối";
     public static final String STATUS_PENDING = "Chờ xử lý";
@@ -21,13 +19,11 @@ public class ReturnRequestListController {
     public ReturnRequestListController(ReturnRequestListView view) {
         System.out.println("CONTROLLER: Constructor ReturnRequestListController bắt đầu.");
         this.view = view;
-        this.dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
-        // this.dateFormat.setTimeZone(TimeZone.getTimeZone("Asia/Ho_Chi_Minh")); // Ví dụ TimeZone
+        this.dateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy"); // Chỉ ngày, không cần giờ
 
         System.out.println("CONTROLLER: Gọi loadReturnRequests() từ constructor.");
         loadReturnRequests();
 
-        // Gán listeners
         this.view.addBackButtonListener(e -> {
             System.out.println("CONTROLLER: Nút 'Trở về' được nhấn.");
             this.view.dispose();
@@ -47,56 +43,53 @@ public class ReturnRequestListController {
         System.out.println("CONTROLLER_loadReturnRequests: Bắt đầu tải dữ liệu.");
         List<DoiTra> requestList;
         try {
-            requestList = DoiTraQuery.getAllDoiTra();
+            requestList = DoiTraQuery.getAllDoiTra(); // Gọi phương thức static
         } catch (Exception e) {
             System.err.println("CONTROLLER_loadReturnRequests: Lỗi nghiêm trọng khi gọi DoiTraQuery.getAllDoiTra(): " + e.getMessage());
             e.printStackTrace();
             JOptionPane.showMessageDialog(view, "Không thể tải danh sách yêu cầu đổi trả do lỗi truy vấn CSDL.", "Lỗi tải dữ liệu", JOptionPane.ERROR_MESSAGE);
-            return; // Không tiếp tục nếu không lấy được dữ liệu
+            return;
         }
 
         System.out.println("CONTROLLER_loadReturnRequests: Số lượng yêu cầu lấy từ Query: " + (requestList != null ? requestList.size() : "null"));
 
-        if (view == null || view.model == null) {
+        if (view == null || view.getModel() == null) { // Giả sử View có getModel()
             System.err.println("CONTROLLER_loadReturnRequests: View hoặc view.model là null. Không thể cập nhật bảng.");
             return;
         }
-        DefaultTableModel model = view.model;
-        model.setRowCount(0); // Xóa dữ liệu cũ
+        DefaultTableModel model = view.getModel(); // Giả sử View có getModel()
+        model.setRowCount(0);
 
         if (requestList == null || requestList.isEmpty()) {
             System.out.println("CONTROLLER_loadReturnRequests: Không có yêu cầu đổi/trả nào để hiển thị.");
-            // Có thể thêm một hàng thông báo vào bảng nếu muốn
-            // model.addRow(new Object[]{"Không có dữ liệu", "", "", "", "", "", ""});
         } else {
             for (DoiTra dt : requestList) {
                 if (dt == null) {
                     System.err.println("CONTROLLER_loadReturnRequests: Gặp đối tượng DoiTra null trong danh sách.");
-                    continue; // Bỏ qua đối tượng null
+                    continue;
                 }
                 try {
                     String formattedDate = "N/A";
-                    if (dt.getNgayDoiTra() != null) {
-                        formattedDate = dateFormat.format(dt.getNgayDoiTra());
+                    if (dt.getNgayDoiTra() != null) { // NgayDoiTra là LocalDate
+                        formattedDate = dt.getNgayDoiTra().format(dateTimeFormatter);
                     }
 
                     String trangThaiHienThi = dt.getTrangThai();
                     if (trangThaiHienThi == null || trangThaiHienThi.trim().isEmpty()) {
-                        trangThaiHienThi = STATUS_PENDING; // Nếu null hoặc rỗng, coi là Chờ xử lý
+                        trangThaiHienThi = STATUS_PENDING;
                     }
 
-                    System.out.println("CONTROLLER_loadReturnRequests: Đang thêm hàng: ID=" + dt.getIdDT() + ", Ngày=" + formattedDate + ", TrạngTháiThực=" + dt.getTrangThai() + ", TrạngTháiHiểnThị=" + trangThaiHienThi);
                     model.addRow(new Object[]{
-                            dt.getIdDT(),
-                            dt.getMaKH(),
-                            dt.getMaSP(),
-                            dt.getMaDonHang(),
+                            dt.getIdDT(),        // int
+                            dt.getMaKH(),        // int
+                            dt.getMaSP(),        // int
+                            dt.getMaDonHang(),   // int
                             formattedDate,
                             dt.getLyDo(),
                             trangThaiHienThi
                     });
                 } catch (Exception e) {
-                    System.err.println("CONTROLLER_loadReturnRequests: Lỗi khi xử lý DoiTra ID: " + dt.getIdDT() + " hoặc thêm vào model: " + e.getMessage());
+                    System.err.println("CONTROLLER_loadReturnRequests: Lỗi khi xử lý DoiTra ID: " + dt.getIdDT() + ": " + e.getMessage());
                     e.printStackTrace();
                 }
             }
@@ -106,24 +99,30 @@ public class ReturnRequestListController {
 
     private void handleUpdateRequestStatusWrapper(String newStatus) {
         System.out.println("CONTROLLER_handleUpdateRequestStatusWrapper: Bắt đầu xử lý cập nhật trạng thái sang: " + newStatus);
-        String requestId = view.getSelectedRequestId();
-        if (requestId == null) {
+        String requestIdStr = view.getSelectedRequestId(); // View trả về String ID
+        if (requestIdStr == null) {
             JOptionPane.showMessageDialog(view, "Vui lòng chọn một yêu cầu để " + (newStatus.equals(STATUS_APPROVED) ? "duyệt." : "từ chối."), "Chưa chọn yêu cầu", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        System.out.println("CONTROLLER_handleUpdateRequestStatusWrapper: Request ID đã chọn: " + requestId);
+
+        int requestId;
+        try {
+            requestId = Integer.parseInt(requestIdStr); // Chuyển ID sang int
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(view, "Mã yêu cầu không hợp lệ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        System.out.println("CONTROLLER_handleUpdateRequestStatusWrapper: Request ID (int) đã chọn: " + requestId);
 
         String currentStatus = view.getCurrentStatusOfSelectedRequest();
-         System.out.println("CONTROLLER_handleUpdateRequestStatusWrapper: Trạng thái hiện tại từ view: " + currentStatus);
+        System.out.println("CONTROLLER_handleUpdateRequestStatusWrapper: Trạng thái hiện tại từ view: " + currentStatus);
 
         if (currentStatus == null) {
-            // Nếu trạng thái từ view là null (có thể do lỗi nào đó), thử giả định là PENDING nếu hợp lý
-            // Hoặc hiển thị lỗi và không cho phép cập nhật
-            currentStatus = STATUS_PENDING; // Hoặc hiển thị lỗi
-             System.out.println("CONTROLLER_handleUpdateRequestStatusWrapper: Trạng thái hiện tại từ view là null, giả định là: " + currentStatus);
+            currentStatus = STATUS_PENDING;
+            System.out.println("CONTROLLER_handleUpdateRequestStatusWrapper: Trạng thái hiện tại từ view là null, giả định là: " + currentStatus);
         }
-        
-        // Kiểm tra xem yêu cầu có thể được cập nhật không
+
         if (!currentStatus.equalsIgnoreCase(STATUS_PENDING)) {
             JOptionPane.showMessageDialog(view, "Yêu cầu này đã được xử lý (Trạng thái: " + currentStatus + "). Không thể thay đổi.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             return;
@@ -139,14 +138,16 @@ public class ReturnRequestListController {
 
         if (confirmation == JOptionPane.YES_OPTION) {
             System.out.println("CONTROLLER_handleUpdateRequestStatusWrapper: Người dùng xác nhận. Gọi handleUpdateRequestStatus.");
-            handleUpdateRequestStatus(requestId, newStatus);
+            handleUpdateRequestStatus(requestId, newStatus); // Truyền int requestId
         } else {
              System.out.println("CONTROLLER_handleUpdateRequestStatusWrapper: Người dùng hủy hành động.");
         }
     }
 
-    private void handleUpdateRequestStatus(String idDT, String newStatus) {
+    // Sửa: nhận int idDT
+    private void handleUpdateRequestStatus(int idDT, String newStatus) {
         System.out.println("CONTROLLER_handleUpdateRequestStatus: Cập nhật ID: " + idDT + " sang trạng thái: " + newStatus);
+        // Gọi phương thức static từ DoiTraQuery, truyền int idDT
         boolean success = DoiTraQuery.capNhatTrangThaiDoiTra(idDT, newStatus);
         if (success) {
             JOptionPane.showMessageDialog(view, "Cập nhật trạng thái cho yêu cầu ID: " + idDT + " thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);

@@ -1,69 +1,81 @@
 package controller.admin;
 
 import model.SanPham;
-import query.SanPhamQuery;
-import view.admin.ManageProductView;
-
+import query.SanPhamQuery; // Gọi phương thức static
+import view.admin.ManageProductView; 
 import java.util.Comparator;
 import java.util.List;
 
 public class ManageProduct {
     private final ManageProductView view;
-    private final SanPhamQuery sanPhamQuery;
-
     public ManageProduct(ManageProductView view) {
         this.view = view;
-        this.sanPhamQuery = new SanPhamQuery();
     }
-
-    /** Load tất cả sản phẩm và sắp xếp theo mã tăng dần */
     public void loadSanPhamList() {
-        List<SanPham> list = sanPhamQuery.getAll();
+        List<SanPham> list = SanPhamQuery.getAll(); // Hoặc SanPhamQuery.getAllSanPhamOrderedByMaSP(true) nếu có
         if (list != null) {
-            list.sort(Comparator.comparing(SanPham::getMaSP)); // sắp xếp theo mã SP
-            view.updateTable(list);
+            list.sort(Comparator.comparingInt(SanPham::getMaSP)); // Sửa thành comparingInt
+            view.updateTable(list); // Giả sử View có phương thức này
         }
     }
-
-    /** Tìm kiếm theo tên */
     public void searchSanPhamByTen(String keyword) {
-        List<SanPham> list = sanPhamQuery.searchSanPhamByTen(keyword);
+        List<SanPham> list = SanPhamQuery.searchSanPhamByTen(keyword);
         if (list != null) {
             view.updateTable(list);
         }
     }
-
-    /** Lọc theo hãng sản xuất */
     public void filterSanPhamByHangSX(String hangSX) {
-        List<SanPham> list = sanPhamQuery.filterSanPhamByHangSX(hangSX);
+        List<SanPham> list = SanPhamQuery.filterSanPhamByHangSX(hangSX);
         if (list != null) {
             view.updateTable(list);
         }
     }
-
-    /** Thêm sản phẩm mới */
     public boolean insertSanPham(SanPham sp) {
-        boolean ok = sanPhamQuery.insertSanPham(sp);
-        if (ok) loadSanPhamList();
+        if (sp.getTenSP() == null || sp.getTenSP().trim().isEmpty()) {
+            System.err.println("CONTROLLER_ManageProduct (insert): Tên sản phẩm không được để trống.");
+            return false;
+        }
+        Integer generatedId = SanPhamQuery.insertSanPhamAndGetId(sp);
+        boolean ok = (generatedId != null && generatedId > 0);
+        if (ok) {
+            System.out.println("CONTROLLER_ManageProduct (insert): Sản phẩm được thêm với MaSP: " + generatedId);
+            loadSanPhamList(); // Tải lại danh sách sau khi thêm
+        } else {
+            System.err.println("CONTROLLER_ManageProduct (insert): Thêm sản phẩm thất bại.");
+        }
         return ok;
     }
-
-    /** Cập nhật sản phẩm */
     public boolean updateSanPham(SanPham sp) {
-        boolean ok = sanPhamQuery.updateSanPham(sp);
-        if (ok) loadSanPhamList();
+        if (SanPhamQuery.getSanPhamById(sp.getMaSP()) == null) { // Giả sử getSanPhamById là static
+            System.err.println("CONTROLLER_ManageProduct (update): Không tìm thấy sản phẩm với Mã SP: " + sp.getMaSP());
+            return false;
+        }
+        boolean ok = SanPhamQuery.updateSanPham(sp);
+        if (ok) {
+            loadSanPhamList(); // Tải lại danh sách sau khi cập nhật
+        }
         return ok;
     }
-
-    /** Xóa sản phẩm theo mã */
-    public boolean deleteSanPham(String maSP) {
-        boolean ok = sanPhamQuery.deleteSanPham(maSP);
-        if (ok) loadSanPhamList();
-        return ok;
+    public boolean deleteSanPham(String maSPStr) {
+        if (maSPStr == null || maSPStr.trim().isEmpty()) {
+            System.err.println("CONTROLLER_ManageProduct (delete): Mã sản phẩm không được để trống.");
+            return false;
+        }
+        try {
+            int maSP = Integer.parseInt(maSPStr.trim());
+            boolean ok = SanPhamQuery.deleteSanPham(maSP); // Truyền int maSP
+            if (ok) {
+                loadSanPhamList(); // Tải lại danh sách sau khi xóa
+            }
+            return ok;
+        } catch (NumberFormatException e) {
+            System.err.println("CONTROLLER_ManageProduct (delete): Mã sản phẩm không hợp lệ (không phải số): " + maSPStr);
+            return false;
+        }
     }
 
     /** Lấy danh sách hãng sản xuất để fill vào ComboBox */
     public List<String> getAllHangSX() {
-        return sanPhamQuery.getAllHangSX();
+        return SanPhamQuery.getAllHangSX();
     }
 }

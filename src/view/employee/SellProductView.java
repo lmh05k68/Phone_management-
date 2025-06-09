@@ -2,9 +2,9 @@ package view.employee;
 
 import controller.employee.SellProduct;
 import model.ChiTietHDXuat;
-import model.KhachHang; // Thêm import
+import model.KhachHang;
 import model.SanPham;
-import query.KhachHangQuery; // Thêm import
+import query.KhachHangQuery;
 import query.SanPhamQuery;
 
 import javax.swing.*;
@@ -18,98 +18,93 @@ import java.util.List;
 
 public class SellProductView extends JFrame {
     private static final long serialVersionUID = 1L;
-    private String maNV;
-    private JTextField tfMaKH, tfTenKH, tfSdtKH, tfMaHDX, tfMaTichDiem;
+    private int maNV;
+    private JTextField tfMaKH, tfTenKH, tfSdtKH; 
     private JSpinner spinnerSoLuong;
     private JTable tableSanPham, tableHoaDon;
     private DefaultTableModel modelSanPham, modelHoaDon;
-    private JLabel lblTongTien, lblGiamGia; // Thêm lblGiamGia
-    private JButton btnSuDungDiem, btnBack; // Thêm btnSuDungDiem
+    private JLabel lblTongTien, lblGiamGia;
+    private JButton btnSuDungDiem, btnBack;
 
     private final SellProduct sellProductController = new SellProduct();
-    private final SanPhamQuery spQuery = new SanPhamQuery();
-    private final KhachHangQuery khachHangQuery = new KhachHangQuery(); // Khởi tạo
+    // Các lớp Query nên được gọi thông qua phương thức static, không cần tạo instance ở đây
+    // private final SanPhamQuery spQuery = new SanPhamQuery();
+    // private final KhachHangQuery khachHangQuery = new KhachHangQuery();
 
     private boolean suDungDiemDangApDung = false;
     private int phanTramGiamHienTai = 0;
 
-    public SellProductView(String maNV) {
+    public SellProductView(int maNV) {
         this.maNV = maNV;
-        System.out.println("SELL_VIEW: Khởi tạo SellProductView cho NV: " + maNV);
-        setTitle("Bán hàng - Nhân viên " + maNV);
-        setSize(1050, 750); // Tăng chiều cao một chút
+        System.out.println("SELL_VIEW: Khởi tạo SellProductView cho NV (Mã: " + maNV + ")");
+        setTitle("Bán hàng - Nhân viên (Mã: " + maNV + ")");
+        setSize(1100, 750); // Điều chỉnh kích thước nếu cần
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         initUI();
-        tfMaHDX.setText("HDX" + System.currentTimeMillis() % 100000); // Gợi ý mã HDX
+        // tfMaHDX.setText("HDX" + System.currentTimeMillis() % 100000); // Loại bỏ vì MaHDX tự sinh
     }
 
     private void initUI() {
         setLayout(new BorderLayout(10, 10));
         JPanel content = new JPanel(new BorderLayout(10, 10));
-        content.setBorder(new EmptyBorder(10, 15, 10, 15));
+        content.setBorder(new EmptyBorder(15, 20, 15, 20));
 
-        // Top Panel: HDX, KH, Tích điểm
-        JPanel topInfoPanelContainer = new JPanel(new BorderLayout(10,5));
+        // Top Panel: KH, Tích điểm
+        JPanel topInfoPanelContainer = new JPanel(new GridLayout(1, 2, 15, 0));
 
-        JPanel panelHDXAndKH = new JPanel(new GridLayout(2,1,5,5));
-
-        JPanel panelHDX = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        panelHDX.setBorder(BorderFactory.createTitledBorder("Thông tin hóa đơn"));
-        tfMaHDX = new JTextField(15);
-        panelHDX.add(new JLabel("Mã HDX*:"));
-        panelHDX.add(tfMaHDX);
-        panelHDXAndKH.add(panelHDX);
-
-        JPanel panelKH = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        // Panel trái: Thông tin KH
+        JPanel panelKH = new JPanel(new GridLayout(0, 2, 5, 5));
         tfMaKH = new JTextField(10);
         tfTenKH = new JTextField(15);
         tfSdtKH = new JTextField(10);
         panelKH.setBorder(BorderFactory.createTitledBorder("Thông tin khách hàng (nếu có)"));
-        panelKH.add(new JLabel("Mã KH:"));
-        panelKH.add(tfMaKH);
-        panelKH.add(new JLabel("Tên KH:"));
-        panelKH.add(tfTenKH);
-        panelKH.add(new JLabel("SĐT KH:"));
-        panelKH.add(tfSdtKH);
-        panelHDXAndKH.add(panelKH);
+        panelKH.add(new JLabel("Mã KH:")); panelKH.add(tfMaKH);
+        panelKH.add(new JLabel("Tên KH:")); panelKH.add(tfTenKH);
+        panelKH.add(new JLabel("SĐT KH:")); panelKH.add(tfSdtKH);
+        topInfoPanelContainer.add(panelKH); // Panel KH giờ chiếm phần bên trái
 
-        topInfoPanelContainer.add(panelHDXAndKH, BorderLayout.CENTER);
+        // Panel phải: Sử dụng điểm
+        JPanel rightTopPanel = new JPanel();
+        rightTopPanel.setLayout(new BoxLayout(rightTopPanel, BoxLayout.Y_AXIS));
+        rightTopPanel.setBorder(BorderFactory.createTitledBorder("Điểm thưởng (nếu có Mã KH)"));
 
-        JPanel panelTichDiemVaSuDungDiem = new JPanel(new BorderLayout(10,5));
-        panelTichDiemVaSuDungDiem.setBorder(BorderFactory.createTitledBorder("Điểm thưởng (nếu có Mã KH)"));
-
-        JPanel panelTichDiemInput = new JPanel(new FlowLayout(FlowLayout.LEFT, 10,0));
-        tfMaTichDiem = new JTextField(10);
-        panelTichDiemInput.add(new JLabel("Mã tích điểm*:"));
-        panelTichDiemInput.add(tfMaTichDiem);
+        // Loại bỏ tfMaTichDiem
+        // JPanel panelTichDiemInput = new JPanel(new FlowLayout(FlowLayout.LEFT, 10,5));
+        // tfMaTichDiem = new JTextField(10);
+        // tfMaTichDiem.setEnabled(false);
+        // panelTichDiemInput.add(new JLabel("Mã tích điểm*:")); // Không cần nữa
+        // panelTichDiemInput.add(tfMaTichDiem);
+        // rightTopPanel.add(panelTichDiemInput);
+        // rightTopPanel.add(Box.createVerticalStrut(5));
 
         btnSuDungDiem = createStyledButton("Sử dụng điểm thưởng");
-        btnSuDungDiem.setEnabled(false); // Ban đầu disable, chỉ enable khi có MaKH
+        btnSuDungDiem.setEnabled(false);
         lblGiamGia = new JLabel("Giảm giá: 0%");
-        lblGiamGia.setFont(new Font("Segoe UI", Font.ITALIC, 13));
-        JPanel panelSuDungDiemControls = new JPanel(new FlowLayout(FlowLayout.LEFT,10,0));
+        lblGiamGia.setFont(new Font("Segoe UI", Font.ITALIC, 14));
+        JPanel panelSuDungDiemControls = new JPanel(new FlowLayout(FlowLayout.LEFT,10,5));
         panelSuDungDiemControls.add(btnSuDungDiem);
         panelSuDungDiemControls.add(lblGiamGia);
-
-        panelTichDiemVaSuDungDiem.add(panelTichDiemInput, BorderLayout.NORTH);
-        panelTichDiemVaSuDungDiem.add(panelSuDungDiemControls, BorderLayout.SOUTH);
-
-        topInfoPanelContainer.add(panelTichDiemVaSuDungDiem, BorderLayout.SOUTH);
+        rightTopPanel.add(panelSuDungDiemControls);
+        topInfoPanelContainer.add(rightTopPanel);
 
 
         // Tables
         String[] colsSP = {"Mã SP", "Tên SP", "Màu", "Đơn giá", "Nước SX", "Hãng SX", "Tồn kho"};
         modelSanPham = new DefaultTableModel(colsSP, 0) {
+        	private static final long serialVersionUID = 1L;
             @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         tableSanPham = new JTable(modelSanPham);
         styleTable(tableSanPham);
         JScrollPane scrollSP = new JScrollPane(tableSanPham);
         scrollSP.setBorder(BorderFactory.createTitledBorder("Danh sách sản phẩm"));
+        scrollSP.setPreferredSize(new Dimension(scrollSP.getPreferredSize().width, 250));
+
 
         String[] colsHD = {"Mã SP", "Tên SP", "Số lượng", "Đơn giá", "Thành tiền"};
         modelHoaDon = new DefaultTableModel(colsHD, 0) {
+        	private static final long serialVersionUID = 1L;
             @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         tableHoaDon = new JTable(modelHoaDon);
@@ -117,14 +112,14 @@ public class SellProductView extends JFrame {
         JScrollPane scrollHD = new JScrollPane(tableHoaDon);
         scrollHD.setBorder(BorderFactory.createTitledBorder("Chi tiết hóa đơn"));
 
-        // Control Panel for adding/removing items and creating invoice
         JPanel panelControl = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
         spinnerSoLuong = new JSpinner(new SpinnerNumberModel(1, 1, 999, 1));
-        ((JSpinner.DefaultEditor) spinnerSoLuong.getEditor()).getTextField().setColumns(3);
+        ((JSpinner.DefaultEditor) spinnerSoLuong.getEditor()).getTextField().setColumns(4);
 
         JButton btnThem = createStyledButton("Thêm vào HĐ");
         JButton btnXoa = createStyledButton("Xóa khỏi HĐ");
         JButton btnBan = createStyledButton("Tạo Hóa Đơn");
+        btnBan.setBackground(new Color(40, 167, 69));
 
         panelControl.add(new JLabel("Số lượng:"));
         panelControl.add(spinnerSoLuong);
@@ -132,12 +127,12 @@ public class SellProductView extends JFrame {
         panelControl.add(btnXoa);
         panelControl.add(btnBan);
 
-        // Bottom Panel: Total amount and Back button
         lblTongTien = new JLabel("Tổng tiền: 0 VNĐ", SwingConstants.RIGHT);
         lblTongTien.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        lblTongTien.setBorder(new EmptyBorder(5,0,5,5));
+        lblTongTien.setBorder(new EmptyBorder(5,0,5,10));
 
         btnBack = createStyledButton("Trở về");
+        btnBack.setBackground(new Color(108, 117, 125));
         JPanel bottomPanelContainer = new JPanel(new BorderLayout());
         bottomPanelContainer.add(lblTongTien, BorderLayout.CENTER);
         JPanel backButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -145,21 +140,17 @@ public class SellProductView extends JFrame {
         bottomPanelContainer.add(backButtonPanel, BorderLayout.EAST);
         bottomPanelContainer.setBorder(new EmptyBorder(10, 10, 5, 10));
 
-        // Split Pane for tables
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scrollSP, scrollHD);
-        split.setDividerLocation(280);
-        split.setResizeWeight(0.4);
+        split.setDividerLocation(300);
+        split.setResizeWeight(0.45);
 
-        // Add components to content panel
         content.add(topInfoPanelContainer, BorderLayout.NORTH);
         content.add(split, BorderLayout.CENTER);
         content.add(panelControl, BorderLayout.SOUTH);
 
-        // Add content and bottom panel to frame
         add(content, BorderLayout.CENTER);
         add(bottomPanelContainer, BorderLayout.SOUTH);
 
-        // Action Listeners
         btnThem.addActionListener(e -> themVaoHoaDon());
         btnXoa.addActionListener(e -> xoaKhoiHoaDon());
         btnBan.addActionListener(e -> banHang());
@@ -169,7 +160,6 @@ public class SellProductView extends JFrame {
         });
         btnSuDungDiem.addActionListener(e -> toggleSuDungDiem());
 
-        // Document listener for MaKH to enable/disable reward features
         tfMaKH.getDocument().addDocumentListener(new DocumentListener() {
             public void changedUpdate(DocumentEvent e) { handleMaKHChange(); }
             public void removeUpdate(DocumentEvent e) { handleMaKHChange(); }
@@ -184,21 +174,29 @@ public class SellProductView extends JFrame {
         table.setFillsViewportHeight(true);
         table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-        table.setRowHeight(25);
+        table.setRowHeight(28);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.getTableHeader().setReorderingAllowed(false);
+         if (table == tableSanPham) {
+             table.getColumnModel().getColumn(0).setPreferredWidth(60);
+             table.getColumnModel().getColumn(1).setPreferredWidth(180);
+             table.getColumnModel().getColumn(6).setPreferredWidth(70);
+         } else if (table == tableHoaDon) {
+             table.getColumnModel().getColumn(0).setPreferredWidth(60);
+             table.getColumnModel().getColumn(1).setPreferredWidth(180);
+         }
     }
 
     private JButton createStyledButton(String text) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btn.setFocusPainted(false);
         btn.setBackground(new Color(0, 123, 255));
         btn.setForeground(Color.WHITE);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(0, 86, 179), 1),
-                BorderFactory.createEmptyBorder(7, 15, 7, 15)
+                BorderFactory.createEmptyBorder(8, 18, 8, 18)
         ));
         return btn;
     }
@@ -206,7 +204,8 @@ public class SellProductView extends JFrame {
     private void loadSanPham() {
         System.out.println("SELL_VIEW: Bắt đầu tải danh sách sản phẩm.");
         modelSanPham.setRowCount(0);
-        List<SanPham> sanPhams = spQuery.getAllSanPham();
+        // Gọi phương thức static từ SanPhamQuery
+        List<SanPham> sanPhams = SanPhamQuery.getAllSanPhamActiving();
         if (sanPhams != null && !sanPhams.isEmpty()) {
             for (SanPham sp : sanPhams) {
                 modelSanPham.addRow(new Object[]{
@@ -226,80 +225,107 @@ public class SellProductView extends JFrame {
             subTotal += (double) modelHoaDon.getValueAt(i, 4);
         }
 
-        double finalTotal = subTotal;
+        double finalTotalTruocThue = subTotal;
         if (suDungDiemDangApDung && phanTramGiamHienTai > 0) {
-            finalTotal = subTotal * (1 - (double) phanTramGiamHienTai / 100.0);
+            finalTotalTruocThue = subTotal * (1 - (double) phanTramGiamHienTai / 100.0);
         }
-        // Thuế 10% được tính trên số tiền sau khi đã giảm giá (nếu có)
-        finalTotal = finalTotal * 1.10; // Cộng 10% VAT
+        double tienThue = finalTotalTruocThue * 0.10; // 10% VAT
+        double finalTotalSauThue = finalTotalTruocThue + tienThue;
 
-        lblTongTien.setText(String.format("Tổng tiền: %,.0f VNĐ", finalTotal));
+        lblTongTien.setText(String.format("Tổng tiền thanh toán: %,.0f VNĐ", finalTotalSauThue));
     }
 
     private void handleMaKHChange() {
-        String maKH = tfMaKH.getText().trim();
-        if (maKH.isEmpty()) {
+        String maKHStr = tfMaKH.getText().trim();
+        if (maKHStr.isEmpty()) {
             btnSuDungDiem.setEnabled(false);
-            tfMaTichDiem.setEnabled(false); // Chỉ cho nhập mã tích điểm khi có mã KH
-            tfMaTichDiem.setText("");
-            // Reset trạng thái dùng điểm nếu MaKH bị xóa
+            // tfMaTichDiem.setEnabled(false); // Loại bỏ
+            // tfMaTichDiem.setText("");      // Loại bỏ
+            tfTenKH.setText("");
+            tfSdtKH.setText("");
+
             if (suDungDiemDangApDung) {
                 suDungDiemDangApDung = false;
                 phanTramGiamHienTai = 0;
                 btnSuDungDiem.setText("Sử dụng điểm thưởng");
+                btnSuDungDiem.setBackground(new Color(0, 123, 255));
                 lblGiamGia.setText("Giảm giá: 0%");
                 updateTotalAmount();
             }
         } else {
-            btnSuDungDiem.setEnabled(true);
-            tfMaTichDiem.setEnabled(true); // Cho phép nhập mã tích điểm
-            // Tự động điền thông tin KH nếu có
-            KhachHang kh = KhachHangQuery.getKhachHangById(maKH);
-            if (kh != null) {
-                tfTenKH.setText(kh.getHoTen());
-                tfSdtKH.setText(kh.getSdtKH());
-            } else {
-                // Nếu không tìm thấy KH, có thể xóa hoặc để người dùng tự nhập
-                // tfTenKH.setText("");
-                // tfSdtKH.setText("");
+            try {
+                int maKH = Integer.parseInt(maKHStr);
+                btnSuDungDiem.setEnabled(true);
+                // tfMaTichDiem.setEnabled(true); // Loại bỏ
+                KhachHang kh = KhachHangQuery.getKhachHangById(maKH);
+                if (kh != null) {
+                    tfTenKH.setText(kh.getHoTen());
+                    tfSdtKH.setText(kh.getSdtKH());
+                } else {
+                    tfTenKH.setText("");
+                    tfSdtKH.setText("");
+                    // Không cần JOptionPane ở đây, để người dùng tiếp tục nhập hoặc tạo KH mới khi bán
+                }
+            } catch (NumberFormatException e) {
+                btnSuDungDiem.setEnabled(false);
+                // tfMaTichDiem.setEnabled(false); // Loại bỏ
+                tfTenKH.setText("");
+                tfSdtKH.setText("");
+                if (suDungDiemDangApDung) {
+                     suDungDiemDangApDung = false;
+                     phanTramGiamHienTai = 0;
+                     btnSuDungDiem.setText("Sử dụng điểm thưởng");
+                     lblGiamGia.setText("Giảm giá: 0%");
+                     updateTotalAmount();
+                }
             }
         }
     }
+
      private void toggleSuDungDiem() {
-        String maKH = tfMaKH.getText().trim();
-        if (maKH.isEmpty()) {
+        String maKHStr = tfMaKH.getText().trim();
+        if (maKHStr.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Vui lòng nhập Mã Khách Hàng trước.", "Thiếu Mã KH", JOptionPane.WARNING_MESSAGE);
             return;
         }
+        try {
+             int maKH = Integer.parseInt(maKHStr);
+             if (!KhachHangQuery.exists(maKH)) { // Kiểm tra KH có tồn tại không
+                 JOptionPane.showMessageDialog(this, "Không tìm thấy khách hàng với mã: " + maKHStr, "Lỗi Mã KH", JOptionPane.ERROR_MESSAGE);
+                 return;
+             }
 
-        if (!suDungDiemDangApDung) { // Đang muốn sử dụng điểm
-            int diemHienTai = khachHangQuery.getSoDiemTichLuy(maKH);
-            if (diemHienTai <= 0) {
-                JOptionPane.showMessageDialog(this, "Khách hàng không có điểm thưởng hoặc không đủ điểm.", "Không có điểm", JOptionPane.INFORMATION_MESSAGE);
-                return;
-            }
-            phanTramGiamHienTai = khachHangQuery.tinhPhanTramGiamTuDiem(maKH);
-            if (phanTramGiamHienTai > 0) {
-                suDungDiemDangApDung = true;
-                btnSuDungDiem.setText("Hủy dùng điểm");
-                btnSuDungDiem.setBackground(new Color(220, 53, 69)); // Màu đỏ cho hủy
-                lblGiamGia.setText(String.format("Giảm giá: %d%% (Điểm: %d)", phanTramGiamHienTai, diemHienTai));
-                tfMaTichDiem.setEnabled(false); // Không cho nhập mã tích điểm khi đang dùng điểm
-                tfMaTichDiem.setText(""); // Xóa mã tích điểm nếu có
-                System.out.println("SELL_VIEW: Áp dụng " + phanTramGiamHienTai + "% giảm giá từ điểm.");
-            } else {
-                JOptionPane.showMessageDialog(this, "Không đủ điểm để được giảm giá.", "Không đủ điểm", JOptionPane.INFORMATION_MESSAGE);
-            }
-        } else { // Đang muốn hủy sử dụng điểm
-            suDungDiemDangApDung = false;
-            phanTramGiamHienTai = 0;
-            btnSuDungDiem.setText("Sử dụng điểm thưởng");
-            btnSuDungDiem.setBackground(new Color(0, 123, 255)); // Màu xanh mặc định
-            lblGiamGia.setText("Giảm giá: 0%");
-            tfMaTichDiem.setEnabled(true); // Cho phép nhập lại mã tích điểm
-            System.out.println("SELL_VIEW: Hủy sử dụng điểm thưởng.");
+             if (!suDungDiemDangApDung) {
+                 int diemHienTai = KhachHangQuery.getSoDiemTichLuy(maKH);
+                 if (diemHienTai <= 0) {
+                     JOptionPane.showMessageDialog(this, "Khách hàng không có điểm thưởng hoặc không đủ điểm.", "Không có điểm", JOptionPane.INFORMATION_MESSAGE);
+                     return;
+                 }
+                 phanTramGiamHienTai = KhachHangQuery.tinhPhanTramGiamTuDiem(maKH);
+                 if (phanTramGiamHienTai > 0) {
+                     suDungDiemDangApDung = true;
+                     btnSuDungDiem.setText("Hủy dùng điểm");
+                     btnSuDungDiem.setBackground(new Color(220, 53, 69));
+                     lblGiamGia.setText(String.format("Giảm giá: %d%% (Điểm: %d)", phanTramGiamHienTai, diemHienTai));
+                     // tfMaTichDiem.setEnabled(false); // Loại bỏ
+                     // tfMaTichDiem.setText("");      // Loại bỏ
+                     System.out.println("SELL_VIEW: Áp dụng " + phanTramGiamHienTai + "% giảm giá từ điểm.");
+                 } else {
+                     JOptionPane.showMessageDialog(this, "Không đủ điểm để được giảm giá (tối thiểu 100 điểm cho 1%).", "Không đủ điểm", JOptionPane.INFORMATION_MESSAGE);
+                 }
+             } else {
+                 suDungDiemDangApDung = false;
+                 phanTramGiamHienTai = 0;
+                 btnSuDungDiem.setText("Sử dụng điểm thưởng");
+                 btnSuDungDiem.setBackground(new Color(0, 123, 255));
+                 lblGiamGia.setText("Giảm giá: 0%");
+                 // tfMaTichDiem.setEnabled(true); // Loại bỏ - không còn tfMaTichDiem
+                 System.out.println("SELL_VIEW: Hủy sử dụng điểm thưởng.");
+             }
+             updateTotalAmount();
+        } catch (NumberFormatException e){
+             JOptionPane.showMessageDialog(this, "Mã khách hàng không hợp lệ.", "Lỗi Mã KH", JOptionPane.ERROR_MESSAGE);
         }
-        updateTotalAmount();
     }
 
 
@@ -309,28 +335,28 @@ public class SellProductView extends JFrame {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn một sản phẩm từ danh sách để thêm.", "Chưa chọn sản phẩm", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        int soLuongMua = (int) spinnerSoLuong.getValue();
+        int soLuongMua = (Integer) spinnerSoLuong.getValue();
         if (soLuongMua <= 0) {
             JOptionPane.showMessageDialog(this, "Số lượng phải lớn hơn 0.", "Số lượng không hợp lệ", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        String maSP = modelSanPham.getValueAt(selectedRowSP, 0).toString();
+        int maSP = (Integer) modelSanPham.getValueAt(selectedRowSP, 0);
         String tenSP = modelSanPham.getValueAt(selectedRowSP, 1).toString();
-        double donGia = (double) modelSanPham.getValueAt(selectedRowSP, 3);
-        int tonKhoHienTai = (int) modelSanPham.getValueAt(selectedRowSP, 6);
+        double donGia = (Double) modelSanPham.getValueAt(selectedRowSP, 3);
+        int tonKhoHienTai = (Integer) modelSanPham.getValueAt(selectedRowSP, 6);
 
         for (int i = 0; i < modelHoaDon.getRowCount(); i++) {
-            if (modelHoaDon.getValueAt(i, 0).toString().equals(maSP)) {
-                int soLuongTrongHDHienTai = (int) modelHoaDon.getValueAt(i, 2);
+            if ((Integer)modelHoaDon.getValueAt(i, 0) == maSP) {
+                int soLuongTrongHDHienTai = (Integer) modelHoaDon.getValueAt(i, 2);
                 int tongSoLuongMoi = soLuongTrongHDHienTai + soLuongMua;
                 if (tongSoLuongMoi > tonKhoHienTai) {
                     JOptionPane.showMessageDialog(this, "Số lượng yêu cầu (" + tongSoLuongMoi + ") vượt quá tồn kho (" + tonKhoHienTai + ") cho sản phẩm " + tenSP + ".", "Hết hàng", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
                 modelHoaDon.setValueAt(tongSoLuongMoi, i, 2);
-                modelHoaDon.setValueAt(tongSoLuongMoi * donGia, i, 4); // Thành tiền (chưa VAT, chưa giảm giá)
+                modelHoaDon.setValueAt(tongSoLuongMoi * donGia, i, 4);
                 updateTotalAmount();
-                System.out.println("SELL_VIEW: Đã cập nhật số lượng cho SP '" + maSP + "' trong hóa đơn.");
+                System.out.println("SELL_VIEW: Đã cập nhật số lượng cho SP ID '" + maSP + "' trong hóa đơn.");
                 return;
             }
         }
@@ -341,7 +367,7 @@ public class SellProductView extends JFrame {
         }
         modelHoaDon.addRow(new Object[]{maSP, tenSP, soLuongMua, donGia, soLuongMua * donGia});
         updateTotalAmount();
-        System.out.println("SELL_VIEW: Đã thêm SP '" + maSP + "' vào hóa đơn.");
+        System.out.println("SELL_VIEW: Đã thêm SP ID '" + maSP + "' vào hóa đơn.");
     }
 
     private void xoaKhoiHoaDon() {
@@ -362,71 +388,71 @@ public class SellProductView extends JFrame {
             return;
         }
 
-        String maHDX = tfMaHDX.getText().trim();
-        if (maHDX.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập Mã Hóa Đơn!", "Thiếu thông tin", JOptionPane.ERROR_MESSAGE);
-            tfMaHDX.requestFocus();
-            return;
-        }
-
-        String maKH = tfMaKH.getText().trim();
+        String maKHStr = tfMaKH.getText().trim();
         String tenKH = tfTenKH.getText().trim();
         String sdtKH = tfSdtKH.getText().trim();
-        String maTichDiemCungCap = tfMaTichDiem.getText().trim();
+        Integer maKHInteger = null;
 
-        if (!maKH.isEmpty()) { // Nếu có Mã KH
-            if (tenKH.isEmpty() || sdtKH.isEmpty()){
-                 JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ Tên và SĐT cho khách hàng.", "Thiếu thông tin KH", JOptionPane.ERROR_MESSAGE);
+        if (!maKHStr.isEmpty()) {
+            try {
+                maKHInteger = Integer.parseInt(maKHStr);
+                 // Kiểm tra xem KH có tồn tại không nếu có mã
+                if (!KhachHangQuery.exists(maKHInteger)) {
+                    // Nếu không tồn tại và có tên + SĐT -> sẽ tạo KH mới trong controller
+                    // Nếu không tồn tại và không có tên + SĐT -> lỗi
+                    if (tenKH.isEmpty() || sdtKH.isEmpty()) {
+                         JOptionPane.showMessageDialog(this, "Mã KH không tồn tại và thiếu thông tin Tên/SĐT để tạo KH mới.", "Lỗi Khách Hàng", JOptionPane.ERROR_MESSAGE);
+                         return;
+                    }
+                     System.out.println("SELL_VIEW: MaKH " + maKHInteger + " không tồn tại, sẽ thử tạo KH mới nếu có Tên và SĐT.");
+                } else {
+                     KhachHang khExisting = KhachHangQuery.getKhachHangById(maKHInteger);
+                     if (khExisting != null) {
+                         tenKH = khExisting.getHoTen(); // Dùng thông tin từ DB cho chắc
+                         sdtKH = khExisting.getSdtKH();
+                         tfTenKH.setText(tenKH); // Cập nhật lại UI
+                         tfSdtKH.setText(sdtKH);
+                     }
+                }
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(this, "Mã Khách Hàng không hợp lệ.", "Lỗi Mã KH", JOptionPane.ERROR_MESSAGE);
+                tfMaKH.requestFocus();
                 return;
             }
-            // Nếu không dùng điểm để giảm giá VÀ mã tích điểm trống -> cảnh báo
-            if (!suDungDiemDangApDung && maTichDiemCungCap.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Khách hàng có Mã KH nhưng chưa nhập Mã Tích Điểm.\nĐiểm sẽ không được tích lũy cho hóa đơn này.", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
-                 // Không return, cho phép tạo hóa đơn không tích điểm
-            }
-             if (!suDungDiemDangApDung && !maTichDiemCungCap.isEmpty() && maTichDiemCungCap.length() > 8) {
-                JOptionPane.showMessageDialog(this, "Mã Tích Điểm không được vượt quá 8 ký tự.", "Mã không hợp lệ", JOptionPane.ERROR_MESSAGE);
-                tfMaTichDiem.requestFocus();
-                return;
-            }
-        } else { // Khách lẻ
-            if (!maTichDiemCungCap.isEmpty() && !suDungDiemDangApDung) { // Khách lẻ không dùng điểm thì ko cần mã tích điểm
-                 JOptionPane.showMessageDialog(this, "Khách lẻ không cần nhập Mã Tích Điểm.", "Thông tin không cần thiết", JOptionPane.INFORMATION_MESSAGE);
-                 tfMaTichDiem.setText("");
-                 maTichDiemCungCap = "";
-            }
-            if (suDungDiemDangApDung) { // Không thể xảy ra vì btnSuDungDiem bị disable nếu ko có MaKH
-                JOptionPane.showMessageDialog(this, "Lỗi logic: Đang cố dùng điểm cho khách lẻ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                return;
+        } else { // Khách vãng lai, không có MaKH
+            if (tenKH.isEmpty() || sdtKH.isEmpty()) {
+                int choice = JOptionPane.showConfirmDialog(this,
+                        "Bạn chưa nhập Mã KH. Thông tin Tên và SĐT cũng trống.\n" +
+                        "Hóa đơn sẽ được tạo cho khách vãng lai (không có thông tin KH cụ thể).\n" +
+                        "Bạn có muốn tiếp tục không?",
+                        "Xác nhận khách vãng lai", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE);
+                if (choice == JOptionPane.NO_OPTION) return;
+                tenKH = "Khách vãng lai"; // Hoặc để trống
+                sdtKH = "";
             }
         }
 
 
         List<ChiTietHDXuat> danhSachChiTiet = new ArrayList<>();
         for (int i = 0; i < modelHoaDon.getRowCount(); i++) {
-            String maSP_CT = modelHoaDon.getValueAt(i, 0).toString();
-            int soLuong_CT = (int) modelHoaDon.getValueAt(i, 2);
-            double donGia_CT = (double) modelHoaDon.getValueAt(i, 3);
-            danhSachChiTiet.add(new ChiTietHDXuat(null, maSP_CT, soLuong_CT, donGia_CT)); // MaHDX sẽ được set trong query
+            int maSP_CT = (Integer) modelHoaDon.getValueAt(i, 0);
+            int soLuong_CT = (Integer) modelHoaDon.getValueAt(i, 2);
+            double donGia_CT = (Double) modelHoaDon.getValueAt(i, 3);
+            danhSachChiTiet.add(new ChiTietHDXuat(maSP_CT, soLuong_CT, donGia_CT));
         }
 
-        System.out.println("SELL_VIEW: Chuẩn bị gọi controller.banHang với MaHDX=" + maHDX +
-                           ", MaNV=" + maNV +
-                           ", MaKH=" + (maKH.isEmpty() ? "Khách lẻ" : maKH) +
-                           ", MaTichDiemCungCap=" + maTichDiemCungCap +
-                           ", SuDungDiem=" + suDungDiemDangApDung +
-                           ", PhanTramGiam=" + phanTramGiamHienTai);
+        System.out.println("SELL_VIEW: Chuẩn bị gọi controller.banHang..." );
+        // Gọi controller, không còn maTheTichDiemKhachCungCap
+        Integer maHDXGenerated = sellProductController.banHang(
+                maNV,
+                maKHInteger,
+                tenKH, sdtKH,
+                danhSachChiTiet,
+                suDungDiemDangApDung,
+                phanTramGiamHienTai);
 
-        boolean success = sellProductController.banHang(maHDX, maNV,
-                                                      maKH.isEmpty() ? null : maKH,
-                                                      tenKH, sdtKH,
-                                                      maTichDiemCungCap, // Truyền mã tích điểm KH cung cấp
-                                                      danhSachChiTiet,
-                                                      suDungDiemDangApDung, // boolean: có dùng điểm không
-                                                      phanTramGiamHienTai); // int: % giảm
-
-        if (success) {
-            JOptionPane.showMessageDialog(this, "Tạo hóa đơn " + maHDX + " thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+        if (maHDXGenerated != null && maHDXGenerated > 0) {
+            JOptionPane.showMessageDialog(this, "Tạo hóa đơn thành công! Mã HĐX: " + maHDXGenerated, "Thành công", JOptionPane.INFORMATION_MESSAGE);
             resetFormBanHang();
         } else {
             JOptionPane.showMessageDialog(this, "Tạo hóa đơn thất bại! Vui lòng kiểm tra lại thông tin, tồn kho và log lỗi.", "Lỗi tạo hóa đơn", JOptionPane.ERROR_MESSAGE);
@@ -436,38 +462,21 @@ public class SellProductView extends JFrame {
 
     private void resetFormBanHang() {
         modelHoaDon.setRowCount(0);
-        tfMaHDX.setText("HDX" + System.currentTimeMillis() % 100000);
-        tfMaKH.setText(""); // Sẽ trigger handleMaKHChange
-        tfTenKH.setText("");
-        tfSdtKH.setText("");
-        tfMaTichDiem.setText("");
-        tfMaTichDiem.setEnabled(false); // Do MaKH trống
+        // tfMaHDX.setText("HDX" + System.currentTimeMillis() % 100000); // Loại bỏ
+        tfMaKH.setText("");
+        // tfTenKH, tfSdtKH, tfMaTichDiem sẽ tự động xóa/disable bởi handleMaKHChange
+
         spinnerSoLuong.setValue(1);
 
         suDungDiemDangApDung = false;
         phanTramGiamHienTai = 0;
         btnSuDungDiem.setText("Sử dụng điểm thưởng");
-        btnSuDungDiem.setBackground(new Color(0, 123, 255));
-        btnSuDungDiem.setEnabled(false); 
+        btnSuDungDiem.setBackground(new Color(0, 123, 255)); // Reset màu nút
+        btnSuDungDiem.setEnabled(false);
         lblGiamGia.setText("Giảm giá: 0%");
 
-        updateTotalAmount(); 
-        loadSanPham(); 
+        updateTotalAmount();
+        loadSanPham();
         System.out.println("SELL_VIEW: Form bán hàng đã được reset.");
-    }
-
-
-    public static void main(String[] args) {
-        try {
-            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Không thể áp dụng Nimbus Look and Feel: " + e.getMessage());
-        }
-        SwingUtilities.invokeLater(() -> new SellProductView("NV001").setVisible(true));
     }
 }

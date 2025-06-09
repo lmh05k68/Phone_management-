@@ -89,7 +89,9 @@ public class ThongKeView extends JFrame {
         mainPanel.add(topPanel, BorderLayout.NORTH);
 
         String[] columnsHDX = {"Mã HDX", "Ngày Lập", "Thành Tiền (Trước thuế)", "Thuế (%)", "Tổng Cộng (Sau thuế)", "Mã KH"};
-        modelHDX = new DefaultTableModel(columnsHDX, 0) { /* ... */ };
+        modelHDX = new DefaultTableModel(columnsHDX, 0) { 
+        	private static final long serialVersionUID = 1L;
+        };
         tableHDX = new JTable(modelHDX);
         styleTable(tableHDX, "hdx");
         JScrollPane scrollPaneHDX = new JScrollPane(tableHDX);
@@ -218,7 +220,6 @@ public class ThongKeView extends JFrame {
     }
 
     private void loadHoaDonXuatTable(int thang, int nam) {
-        // ... (Giữ nguyên như phiên bản trước)
         System.out.println("THONGKE_VIEW_loadHoaDonXuatTable: Tải HĐX cho Tháng: " + thang + ", Năm: " + nam);
         modelHDX.setRowCount(0);
         List<HoaDonXuat> list = hoaDonXuatQuery.getHoaDonByMonthAndYear(thang, nam);
@@ -242,25 +243,16 @@ public class ThongKeView extends JFrame {
             System.out.println("THONGKE_VIEW_loadHoaDonXuatTable: Không có hóa đơn xuất nào trong tháng/năm đã chọn.");
         }
     }
-
-    // SỬA PHƯƠNG THỨC NÀY
     private void loadHoaDonNhapTable(int thang, int nam) {
         System.out.println("THONGKE_VIEW_loadHoaDonNhapTable: Tai HDN cho Thang: " + thang + ", Nam: " + nam);
         modelHDN.setRowCount(0);
-        // Gọi phương thức chỉ lấy thông tin cơ bản của HoaDonNhap
         List<HoaDonNhap> list = hoaDonNhapQuery.getHoaDonNhapByMonthAndYear(thang, nam);
 
         if (list != null && !list.isEmpty()) {
             for (HoaDonNhap hdn : list) {
-                // Nếu bạn muốn hiển thị tổng tiền của TỪNG hóa đơn nhập này,
-                // bạn cần gọi thêm một phương thức query ở đây để tính tổng cho hdn.getMaHDN()
-                // Ví dụ: double tongTienTungHDN = hoaDonNhapQuery.tinhTongTienChoMotHoaDonNhap(hdn.getMaHDN());
-                // Hiện tại, chúng ta chỉ hiển thị thông tin cơ bản
                 modelHDN.addRow(new Object[]{
                         hdn.getMaHDN(),
                         (hdn.getNgayNhap() != null) ? hdn.getNgayNhap().format(dateFormatter) : "N/A",
-                        // Bỏ cột tổng tiền ở đây, vì model HoaDonNhap đã không còn
-                        // currencyFormat.format(hdn.getTongTienNhap()), << BỎ DÒNG NÀY
                         hdn.getMaNCC(),
                         hdn.getMaNV()
                 });

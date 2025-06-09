@@ -1,114 +1,126 @@
 package query;
 
-import dbConnection.DBConnection; // Đảm bảo import đúng
+import dbConnection.DBConnection;
 import model.DoiTra;
 import java.sql.Connection;
+import java.sql.Date; // Dùng java.sql.Date
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-// import java.text.SimpleDateFormat; // Không cần ở đây nữa nếu format ở controller
+import java.sql.Statement; // Cho RETURN_GENERATED_KEYS
+import java.time.LocalDate; // Model dùng LocalDate
 import java.util.ArrayList;
 import java.util.List;
 
 public class DoiTraQuery {
 
-    // Giả sử bảng hóa đơn là 'hoadonxuat' và cột mã hóa đơn là 'mahdx'
-    private static boolean kiemTraMaDonHangTonTai(String maDonHang) {
-        String sql = "SELECT 1 FROM hoadonxuat WHERE mahdx = ?"; // SỬA TÊN BẢNG VÀ CỘT NẾU CẦN
+    // Sửa: Nhận int maDonHang
+    private static boolean kiemTraMaDonHangTonTai(int maDonHang) {
+        String sql = "SELECT 1 FROM hoadonxuat WHERE mahdx = ?"; // Tên cột MaHDX là int
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, maDonHang);
+            stmt.setInt(1, maDonHang); // Sử dụng setInt
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();
             }
         } catch (SQLException e) {
             System.err.println("Lỗi kiểm tra mã đơn hàng '" + maDonHang + "': " + e.getMessage());
-            // e.printStackTrace(); // Bỏ comment để debug
             return false;
         }
     }
 
-    public static boolean themYeuCauDoiTra(DoiTra dt) {
-        if (dt == null || dt.getIdDT() == null || dt.getIdDT().trim().isEmpty()) {
-            System.err.println("Lỗi thêm yêu cầu đổi trả: Đối tượng DoiTra hoặc idDT không hợp lệ (null hoặc rỗng).");
-            return false;
+    /**
+     * Thêm một yêu cầu đổi trả mới. idDT là tự sinh.
+     * @param dt Đối tượng DoiTra (không cần idDT ban đầu).
+     * @return idDT (Integer) tự sinh nếu thành công, hoặc null nếu thất bại.
+     */
+    public static Integer themYeuCauDoiTraAndGetId(DoiTra dt) {
+        if (dt == null) {
+            System.err.println("Lỗi thêm yêu cầu đổi trả: Đối tượng DoiTra là null.");
+            return null;
         }
+        // Kiểm tra MaDonHang (int) có tồn tại không
         if (!kiemTraMaDonHangTonTai(dt.getMaDonHang())) {
             System.err.println("Từ chối thêm yêu cầu đổi trả: Mã đơn hàng '" + dt.getMaDonHang() + "' không tồn tại.");
-            return false;
+            // Có thể throw new SQLException("Mã đơn hàng không tồn tại") để Controller bắt và hiển thị lỗi cụ thể hơn
+            return null;
         }
 
-        // Câu SQL phải bao gồm idDT và các cột khác với tên CSDL (chữ thường)
-        String sql = "INSERT INTO doitra (iddt, makh, masp, madonhang, ngaydoitra, lydo, trangthai) VALUES (?, ?, ?, ?, ?, ?, ?)";
-
+        // iddt là SERIAL, không cần truyền vào
+        String sql = "INSERT INTO doitra (makh, masp, madonhang, ngaydoitra, lydo, trangthai) VALUES (?, ?, ?, ?, ?, ?)";
+        ResultSet generatedKeys = null;
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            stmt.setString(1, dt.getIdDT());
-            stmt.setString(2, dt.getMaKH());
-            stmt.setString(3, dt.getMaSP());
-            stmt.setString(4, dt.getMaDonHang());
-            stmt.setDate(5, new java.sql.Date(dt.getNgayDoiTra().getTime()));
-            stmt.setString(6, dt.getLyDo());
-            stmt.setString(7, dt.getTrangThai()); // Gán trạng thái (ví dụ: "Chờ xử lý")
+            stmt.setInt(1, dt.getMaKH());         // makh là int
+            stmt.setInt(2, dt.getMaSP());         // masp là int
+            stmt.setInt(3, dt.getMaDonHang());    // madonhang là int
+            stmt.setDate(4, Date.valueOf(dt.getNgayDoiTra())); // Chuyển LocalDate sang java.sql.Date
+            stmt.setString(5, dt.getLyDo());
+            stmt.setString(6, dt.getTrangThai()); // Trạng thái mặc định đã được gán trong model
 
             int affectedRows = stmt.executeUpdate();
-            return affectedRows > 0;
+            if (affectedRows == 0) {
+                System.err.println("DoiTraQuery (themAndGetId): Chèn yêu cầu đổi trả thất bại.");
+                return null;
+            }
+
+            generatedKeys = stmt.getGeneratedKeys();
+            if (generatedKeys.next()) {
+                return generatedKeys.getInt(1); // Trả về idDT tự sinh
+            } else {
+                System.err.println("DoiTraQuery (themAndGetId): Chèn thành công nhưng không lấy được ID.");
+                return null;
+            }
 
         } catch (SQLException e) {
-            System.err.println("Lỗi SQL khi thêm yêu cầu đổi/trả. idDT: '" + dt.getIdDT() + "'. Lỗi: " + e.getMessage());
+            System.err.println("Lỗi SQL khi thêm yêu cầu đổi/trả. Lỗi: " + e.getMessage());
             e.printStackTrace();
-            return false;
+            return null;
+        } finally {
+             if (generatedKeys != null) try { generatedKeys.close(); } catch (SQLException e) { /* ignored */ }
         }
     }
 
     public static List<DoiTra> getAllDoiTra() {
         List<DoiTra> list = new ArrayList<>();
-        // Sử dụng tên cột chữ thường từ CSDL
         String sql = "SELECT iddt, makh, masp, madonhang, ngaydoitra, lydo, trangthai FROM doitra ORDER BY ngaydoitra DESC, iddt DESC";
-
-        System.out.println("DEBUG QUERY: Đang thực thi SQL: " + sql); // Dòng debug
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
-            System.out.println("DEBUG QUERY: Đã thực thi SQL thành công."); // Dòng debug
-
-            int count = 0;
             while (rs.next()) {
-                count++;
+                LocalDate ngayDoiTra = null;
+                Date sqlDateDoiTra = rs.getDate("ngaydoitra");
+                if (sqlDateDoiTra != null) {
+                    ngayDoiTra = sqlDateDoiTra.toLocalDate();
+                }
+
                 DoiTra dt = new DoiTra(
-                        rs.getString("iddt"),       // Chữ thường
-                        rs.getString("makh"),       // Chữ thường
-                        rs.getString("masp"),       // Chữ thường
-                        rs.getString("madonhang"),  // Chữ thường
-                        rs.getDate("ngaydoitra"),   // Chữ thường (kiểu java.sql.Date)
-                        rs.getString("lydo"),       // Chữ thường
-                        rs.getString("trangthai")   // Chữ thường
+                        rs.getInt("iddt"),
+                        rs.getInt("makh"),
+                        rs.getInt("masp"),
+                        rs.getInt("madonhang"),
+                        ngayDoiTra,
+                        rs.getString("lydo"),
+                        rs.getString("trangthai")
                 );
                 list.add(dt);
-                 System.out.println("DEBUG QUERY: Đã thêm DoiTra ID: " + dt.getIdDT()); // Dòng debug
             }
-            System.out.println("DEBUG QUERY: Đã lấy được " + count + " bản ghi từ CSDL."); // Dòng debug
-
         } catch (SQLException e) {
             System.err.println("Lỗi khi lấy danh sách đổi trả: " + e.getMessage());
-            e.printStackTrace();
-        } catch (Exception e) {
-            System.err.println("Lỗi không mong muốn khi lấy danh sách đổi trả: " + e.getMessage());
             e.printStackTrace();
         }
         return list;
     }
 
-    public static boolean capNhatTrangThaiDoiTra(String idDT, String trangThaiMoi) {
-        // Sử dụng tên cột chữ thường
+    public static boolean capNhatTrangThaiDoiTra(int idDT, String trangThaiMoi) { // idDT là int
         String sql = "UPDATE doitra SET trangthai = ? WHERE iddt = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, trangThaiMoi);
-            stmt.setString(2, idDT);
+            stmt.setInt(2, idDT); // Sử dụng setInt
             int affectedRows = stmt.executeUpdate();
             return affectedRows > 0;
         } catch (SQLException e) {

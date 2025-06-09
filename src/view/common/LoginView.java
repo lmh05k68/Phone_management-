@@ -1,114 +1,150 @@
 package view.common;
 
-// import controller.common.RememberPassword; // Không cần import trực tiếp ở đây nữa, Controller sẽ xử lý
-
 import javax.swing.*;
-import javax.swing.border.EmptyBorder; // Thêm import
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
 public class LoginView extends JFrame {
     private static final long serialVersionUID = 1L;
-
-    // Các thành phần được khai báo là public để Controller có thể truy cập
-    // Nếu bạn muốn tuân thủ đóng gói chặt chẽ hơn, hãy tạo các getter.
-    public JTextField usernameField = new JTextField(20);
-    public JPasswordField passwordField = new JPasswordField(20);
-    public JButton loginButton = new JButton("Đăng nhập");
-    public JButton registerButton = new JButton("Đăng ký");
-    public JButton changePasswordButton = new JButton("Đổi mật khẩu");
-    public JCheckBox rememberCheckBox = new JCheckBox("Nhớ tài khoản"); // Sửa text cho nhất quán
+    private JTextField usernameField;
+    private JPasswordField passwordField;
+    private JButton loginButton;
+    private JButton registerButton;
+    private JButton changePasswordButton;
+    private JCheckBox rememberCheckBox;
 
     public LoginView() {
         System.out.println("LOGIN_VIEW: Constructor LoginView bắt đầu.");
-        setTitle("Đăng nhập hệ thống");
-        setSize(450, 450); // Điều chỉnh kích thước nếu cần
+        setTitle("Đăng Nhập Hệ Thống"); // Sửa lại title cho đúng
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
+        usernameField = new JTextField(20); // Số cột ban đầu, GridBagLayout sẽ điều chỉnh
+        passwordField = new JPasswordField(20);
+        loginButton = new JButton("Đăng nhập");
+        registerButton = new JButton("Đăng ký");
+        changePasswordButton = new JButton("Đổi mật khẩu");
+        rememberCheckBox = new JCheckBox("Nhớ tài khoản");
 
+        initUI(); // Gọi initUI sau khi đã khởi tạo các thành phần
+
+        pack(); // Tự động điều chỉnh kích thước frame dựa trên nội dung
+        setMinimumSize(new Dimension(420, getHeight())); // Đảm bảo chiều rộng tối thiểu
+        System.out.println("LOGIN_VIEW: Constructor LoginView kết thúc.");
+    }
+
+    private void initUI() {
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-        mainPanel.setBorder(new EmptyBorder(25, 35, 25, 35)); // Padding
+        mainPanel.setBorder(new EmptyBorder(30, 40, 30, 40));
 
         JLabel lblTitle = new JLabel("ĐĂNG NHẬP HỆ THỐNG");
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 22));
+        lblTitle.setFont(new Font("Arial", Font.BOLD, 24));
         lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 25, 0));
+        lblTitle.setBorder(new EmptyBorder(0, 0, 30, 0));
         mainPanel.add(lblTitle);
 
-        // Input fields
-        mainPanel.add(createStyledFieldPanel("Tên đăng nhập:", usernameField));
-        mainPanel.add(Box.createVerticalStrut(12)); // Khoảng cách
-        mainPanel.add(createStyledFieldPanel("Mật khẩu:", passwordField));
-        mainPanel.add(Box.createVerticalStrut(12)); // Khoảng cách
+        // Panel chứa các trường input, sử dụng GridBagLayout để các field bằng nhau
+        JPanel inputFieldsPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbcInput = new GridBagConstraints();
+        gbcInput.insets = new Insets(5, 0, 5, 0); // Khoảng cách giữa các hàng
+        gbcInput.fill = GridBagConstraints.HORIZONTAL;
+        gbcInput.weightx = 1.0; // Cho phép các trường text mở rộng
+
+        // Tên đăng nhập
+        gbcInput.gridx = 0; gbcInput.gridy = 0; gbcInput.weightx = 0.2; // Label chiếm ít không gian hơn
+        JLabel lblUsername = new JLabel("Tên đăng nhập:");
+        styleLabel(lblUsername);
+        inputFieldsPanel.add(lblUsername, gbcInput);
+
+        gbcInput.gridx = 1; gbcInput.gridy = 0; gbcInput.weightx = 0.8; // Field chiếm nhiều không gian hơn
+        styleTextField(usernameField);
+        inputFieldsPanel.add(usernameField, gbcInput);
+
+        // Mật khẩu
+        gbcInput.gridx = 0; gbcInput.gridy = 1; gbcInput.weightx = 0.2;
+        JLabel lblPassword = new JLabel("Mật khẩu:");
+        styleLabel(lblPassword);
+        inputFieldsPanel.add(lblPassword, gbcInput);
+
+        gbcInput.gridx = 1; gbcInput.gridy = 1; gbcInput.weightx = 0.8;
+        styleTextField(passwordField);
+        inputFieldsPanel.add(passwordField, gbcInput);
+
+        mainPanel.add(inputFieldsPanel);
+        mainPanel.add(Box.createVerticalStrut(10)); // Giảm khoảng cách một chút
 
         // Remember checkbox
-        JPanel rememberPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JPanel rememberPanel = new JPanel(new FlowLayout(FlowLayout.LEFT)); // Căn trái checkbox
         rememberPanel.setOpaque(false);
-        rememberCheckBox.setFont(new Font("Segoe UI", Font.PLAIN, 14)); // Style cho checkbox
+        rememberCheckBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        rememberCheckBox.setOpaque(false);
+        rememberCheckBox.setFocusPainted(false);
         rememberPanel.add(rememberCheckBox);
         mainPanel.add(rememberPanel);
-        mainPanel.add(Box.createVerticalStrut(20)); // Khoảng cách
+        mainPanel.add(Box.createVerticalStrut(20)); // Giảm khoảng cách
 
         // Buttons
-        JPanel buttonPanel = new JPanel(new GridLayout(0, 1, 0, 10)); // 0 hàng, 1 cột, khoảng cách dọc 10
-        buttonPanel.setOpaque(false); // Để nền của mainPanel hiển thị
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
+        buttonPanel.setOpaque(false);
 
-        // Style các nút trước khi thêm vào panel
-        styleGenericButton(loginButton);
-        styleGenericButton(registerButton);
-        styleGenericButton(changePasswordButton);
+        styleGenericButton(loginButton, new Color(0, 123, 255));
+        styleGenericButton(registerButton, new Color(40, 167, 69));
+        styleGenericButton(changePasswordButton, new Color(108, 117, 125));
 
         buttonPanel.add(loginButton);
+        buttonPanel.add(Box.createVerticalStrut(10));
         buttonPanel.add(registerButton);
+        buttonPanel.add(Box.createVerticalStrut(10));
         buttonPanel.add(changePasswordButton);
+
         mainPanel.add(buttonPanel);
-
         setContentPane(mainPanel);
-        System.out.println("LOGIN_VIEW: Constructor LoginView kết thúc. Việc tải credentials sẽ do Controller thực hiện.");
     }
 
-    // Phương thức tạo panel cho label và field với style
-    private JPanel createStyledFieldPanel(String labelText, JComponent field) {
-        JPanel panel = new JPanel(new BorderLayout(8, 5)); // Khoảng cách giữa label và field
-        panel.setOpaque(false);
-
-        JLabel label = new JLabel(labelText);
-        label.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        label.setPreferredSize(new Dimension(110, 28)); // Đặt kích thước label để các trường thẳng hàng
-        panel.add(label, BorderLayout.WEST);
-
-        // Thiết lập font cho các trường nhập liệu
-        if (field instanceof JTextField || field instanceof JPasswordField) {
-            field.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-             field.setBorder(BorderFactory.createCompoundBorder(
-                field.getBorder(), // Giữ viền gốc
-                BorderFactory.createEmptyBorder(3, 5, 3, 5))); // Thêm padding bên trong
-        }
-        panel.add(field, BorderLayout.CENTER);
-        // Giới hạn chiều cao tối đa của panel
-        panel.setMaximumSize(new Dimension(Short.MAX_VALUE, field.getPreferredSize().height + 10));
-        return panel;
+    // Phương thức style cho JLabel
+    private void styleLabel(JLabel label) {
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 15));
     }
 
-    // Phương thức style chung cho các nút
-    private void styleGenericButton(JButton btn) {
+    // Phương thức style cho JTextField và JPasswordField
+    private void styleTextField(JComponent field) {
+        field.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        field.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(Color.GRAY, 1),
+            new EmptyBorder(5, 8, 5, 8) // Padding bên trong
+        ));
+        // Đảm bảo chiều cao nhất quán
+        field.setPreferredSize(new Dimension(field.getPreferredSize().width, 30));
+    }
+
+
+    private void styleGenericButton(JButton btn, Color backgroundColor) {
         btn.setFont(new Font("Segoe UI", Font.BOLD, 15));
         btn.setFocusPainted(false);
-        btn.setBackground(new Color(0, 123, 255)); // Màu nền xanh dương (Bootstrap primary)
-        btn.setForeground(Color.WHITE);
+        btn.setBackground(backgroundColor);
+        btn.setForeground(Color.WHITE); // Chữ trắng luôn nổi bật trên các màu nền này
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0, 86, 179), 1), // Viền tối hơn
-                BorderFactory.createEmptyBorder(10, 20, 10, 20) // Tăng padding
+                BorderFactory.createLineBorder(backgroundColor.darker().darker(), 1), // Viền đậm hơn
+                new EmptyBorder(10, 25, 10, 25) // Giảm padding dọc một chút
         ));
-        btn.setAlignmentX(Component.CENTER_ALIGNMENT); // Cần thiết nếu panel cha dùng BoxLayout theo trục Y
-        // Đặt kích thước ưa thích để các nút có chiều rộng full và chiều cao đồng nhất
-        btn.setPreferredSize(new Dimension(btn.getPreferredSize().width, 45)); // Tăng chiều cao nút
-        btn.setMaximumSize(new Dimension(Short.MAX_VALUE, 45)); // Cho phép nút mở rộng full chiều ngang
+        btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        // Để các nút có chiều rộng bằng nhau và chiếm toàn bộ panel chứa chúng
+        btn.setMinimumSize(new Dimension(250, 45)); // Chiều cao tối thiểu
+        btn.setPreferredSize(new Dimension(280, 45)); // Chiều cao ưu tiên
+        btn.setMaximumSize(new Dimension(Short.MAX_VALUE, 45)); // Chiều cao tối đa, chiều rộng tối đa
     }
 
-    // Main method để test LoginView (nếu cần controller, phải khởi tạo LoginController)
+    // Getters
+    public JTextField getUsernameField() { return usernameField; }
+    public JPasswordField getPasswordField() { return passwordField; }
+    public JButton getLoginButton() { return loginButton; }
+    public JButton getRegisterButton() { return registerButton; }
+    public JButton getChangePasswordButton() { return changePasswordButton; }
+    public JCheckBox getRememberCheckBox() { return rememberCheckBox; }
+
     public static void main(String[] args) {
         try {
             for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
@@ -120,11 +156,11 @@ public class LoginView extends JFrame {
         } catch (Exception e) {
              System.err.println("Không thể áp dụng Nimbus Look and Feel: " + e.getMessage());
         }
+
         SwingUtilities.invokeLater(() -> {
-            LoginView loginView = new LoginView();
-            // Để test đầy đủ chức năng "Nhớ mật khẩu", bạn cần khởi tạo LoginController ở đây
-            // controller.common.LoginController loginController = new controller.common.LoginController(loginView);
-            loginView.setVisible(true);
+            LoginView view = new LoginView();
+            // controller.common.LoginController controller = new controller.common.LoginController(view); // Ví dụ
+            view.setVisible(true);
         });
     }
 }

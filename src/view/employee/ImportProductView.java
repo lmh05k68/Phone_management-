@@ -5,7 +5,7 @@ import model.ChiTietHDNhap;
 import model.NhaCungCap;
 import model.SanPham;
 import query.NhaCungCapQuery;
-import query.SanPhamQuery;
+import query.SanPhamQuery; // Đảm bảo tên phương thức gọi khớp
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -15,172 +15,235 @@ import java.util.List;
 
 public class ImportProductView extends JFrame {
     private static final long serialVersionUID = 1L;
-    private JTextField txtMaHDN;
     private JComboBox<NhaCungCap> cboNCC;
     private JComboBox<SanPham> cboSanPham;
     private JTextField txtSoLuong, txtDonGia;
     private JTable table;
     private DefaultTableModel tableModel;
     private List<ChiTietHDNhap> dsNhap = new ArrayList<>();
-    private String maNV;
+    private final int maNV; // Nên là final nếu không thay đổi sau khi khởi tạo
 
-    public ImportProductView(String maNV) {
+    public ImportProductView(int maNV) {
         this.maNV = maNV;
-        setTitle("Nhập hàng");
-        setSize(800, 650);
+        System.out.println("IMPORT_PRODUCT_VIEW: Khởi tạo cho NV (Mã: " + maNV + ")");
+        setTitle("Nhập Hàng");
+        setSize(850, 650);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         initUI();
         loadData();
-        setVisible(true);
     }
 
     private void initUI() {
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
 
-        JLabel lblTitle = new JLabel("Quản lý nhập hàng", SwingConstants.CENTER);
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 20));
+        JLabel lblTitle = new JLabel("Quản Lý Nhập Hàng", SwingConstants.CENTER);
+        lblTitle.setFont(new Font("Arial", Font.BOLD, 24));
         mainPanel.add(lblTitle, BorderLayout.NORTH);
 
-        JPanel inputPanel = new JPanel(new GridLayout(5, 2, 10, 10));
-        txtMaHDN = new JTextField();
+        JPanel topInputPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbcTop = new GridBagConstraints();
+        gbcTop.insets = new Insets(5, 5, 5, 5);
+        gbcTop.fill = GridBagConstraints.HORIZONTAL;
+
+        gbcTop.gridx = 0; gbcTop.gridy = 0;
+        gbcTop.weightx = 0.2;
+        topInputPanel.add(new JLabel("Nhà cung cấp*:"), gbcTop);
+        gbcTop.gridx = 1; gbcTop.gridy = 0;
+        gbcTop.weightx = 0.8;
         cboNCC = new JComboBox<>();
+        cboNCC.setFont(new Font("Segoe UI", Font.PLAIN, 14)); // Thêm font
+        topInputPanel.add(cboNCC, gbcTop);
+
+        JPanel productSelectionPanel = new JPanel(new BorderLayout(10,10));
+        productSelectionPanel.setBorder(BorderFactory.createTitledBorder("Thêm sản phẩm vào phiếu nhập"));
+
+        JPanel productFieldsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         cboSanPham = new JComboBox<>();
-        txtSoLuong = new JTextField();
-        txtDonGia = new JTextField();
+        cboSanPham.setFont(new Font("Segoe UI", Font.PLAIN, 14)); // Thêm font
+        cboSanPham.setPreferredSize(new Dimension(250, cboSanPham.getPreferredSize().height)); // Tăng chiều rộng
+        txtSoLuong = new JTextField(5);
+        txtSoLuong.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtDonGia = new JTextField(8);
+        txtDonGia.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        JButton btnThemSPVaoBang = createStyledButton("Thêm vào phiếu");
+        btnThemSPVaoBang.setMargin(new Insets(5,10,5,10));
 
-        inputPanel.add(new JLabel("Mã hóa đơn:"));
-        inputPanel.add(txtMaHDN);
-        inputPanel.add(new JLabel("Nhà cung cấp:"));
-        inputPanel.add(cboNCC);
-        inputPanel.add(new JLabel("Sản phẩm:"));
-        inputPanel.add(cboSanPham);
-        inputPanel.add(new JLabel("Số lượng:"));
-        inputPanel.add(txtSoLuong);
-        inputPanel.add(new JLabel("Đơn giá:"));
-        inputPanel.add(txtDonGia);
+        productFieldsPanel.add(new JLabel("Sản phẩm:"));
+        productFieldsPanel.add(cboSanPham);
+        productFieldsPanel.add(new JLabel("Số lượng:"));
+        productFieldsPanel.add(txtSoLuong);
+        productFieldsPanel.add(new JLabel("Đơn giá nhập:"));
+        productFieldsPanel.add(txtDonGia);
+        productFieldsPanel.add(btnThemSPVaoBang);
 
-        JPanel centerPanel = new JPanel(new BorderLayout(10, 10));
-        centerPanel.add(inputPanel, BorderLayout.NORTH);
+        productSelectionPanel.add(productFieldsPanel, BorderLayout.NORTH);
 
-        tableModel = new DefaultTableModel(new String[]{"Mã SP", "Tên SP", "Số lượng", "Đơn giá"}, 0);
+        tableModel = new DefaultTableModel(new String[]{"Mã SP", "Tên SP", "Số lượng", "Đơn giá nhập", "Thành tiền"}, 0){
+            private static final long serialVersionUID = 1L;
+            @Override public boolean isCellEditable(int row, int column) { return false; }
+        };
         table = new JTable(tableModel);
+        styleTable(table);
         JScrollPane scrollPane = new JScrollPane(table);
-        centerPanel.add(scrollPane, BorderLayout.CENTER);
+        productSelectionPanel.add(scrollPane, BorderLayout.CENTER);
 
-        JPanel buttonPanel = new JPanel(new GridLayout(1, 2, 20, 0));
-        JButton btnThem = createStyledButton("Thêm sản phẩm");
-        JButton btnNhap = createStyledButton("Xác nhận nhập hàng");
-        buttonPanel.add(btnThem);
-        buttonPanel.add(btnNhap);
+        JPanel centerContainer = new JPanel(new BorderLayout(10,10));
+        centerContainer.add(topInputPanel, BorderLayout.NORTH);
+        centerContainer.add(productSelectionPanel, BorderLayout.CENTER);
+        mainPanel.add(centerContainer, BorderLayout.CENTER);
 
-        centerPanel.add(buttonPanel, BorderLayout.SOUTH);
-        btnThem.addActionListener(e -> themSanPham());
-        btnNhap.addActionListener(e -> xacNhanNhap());
-
-        mainPanel.add(centerPanel, BorderLayout.CENTER);
-
+        JPanel bottomButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        JButton btnXacNhanNhapHang = createStyledButton("Xác nhận nhập hàng");
+        btnXacNhanNhapHang.setBackground(new Color(40, 167, 69)); // Màu xanh lá
         JButton btnBack = createStyledButton("Trở về");
-        btnBack.setBackground(new Color(76, 175, 80));
-        btnBack.addActionListener(e -> {
-            dispose();
-            new EmployeeView(maNV).setVisible(true);
-        });
+        btnBack.setBackground(new Color(108, 117, 125));
 
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        bottomPanel.add(btnBack);
-        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
+        bottomButtonPanel.add(btnXacNhanNhapHang);
+        bottomButtonPanel.add(btnBack);
+        mainPanel.add(bottomButtonPanel, BorderLayout.SOUTH);
+
+        btnThemSPVaoBang.addActionListener(e -> themSanPhamVaoPhieu());
+        btnXacNhanNhapHang.addActionListener(e -> xacNhanNhap());
+        btnBack.addActionListener(e -> dispose());
 
         setContentPane(mainPanel);
     }
 
+    private void styleTable(JTable tbl) {
+        tbl.setFillsViewportHeight(true);
+        tbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        tbl.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
+        tbl.setRowHeight(28); // Tăng chiều cao hàng
+        tbl.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tbl.getTableHeader().setReorderingAllowed(false);
+        tbl.setAutoCreateRowSorter(true); // Cho phép sắp xếp
+    }
+
     private JButton createStyledButton(String text) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 15));
         btn.setFocusPainted(false);
-        btn.setBackground(new Color(33, 150, 243));
+        btn.setBackground(new Color(0, 123, 255));
         btn.setForeground(Color.WHITE);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(25, 118, 210)),
+                BorderFactory.createLineBorder(new Color(0, 86, 179), 1),
                 BorderFactory.createEmptyBorder(10, 20, 10, 20)
         ));
         return btn;
     }
 
     private void loadData() {
-        List<NhaCungCap> dsNCC = new NhaCungCapQuery().getAllNhaCungCap();
+        System.out.println("IMPORT_PRODUCT_VIEW: Loading data for ComboBoxes...");
+        List<NhaCungCap> dsNCC = NhaCungCapQuery.getAll(); // Gọi phương thức static
         cboNCC.removeAllItems();
-        for (NhaCungCap ncc : dsNCC) {
-            cboNCC.addItem(ncc);
+        if (dsNCC != null && !dsNCC.isEmpty()) {
+            for (NhaCungCap ncc : dsNCC) {
+                cboNCC.addItem(ncc); // JComboBox sẽ gọi toString() của NhaCungCap
+            }
+            System.out.println("IMPORT_PRODUCT_VIEW: Loaded " + dsNCC.size() + " NhaCungCap.");
+        } else {
+            System.out.println("IMPORT_PRODUCT_VIEW: No NhaCungCap found or error loading.");
         }
 
-        List<SanPham> dsSP = new SanPhamQuery().getAllSanPham();
+        // Gọi SanPhamQuery.getAll() hoặc một phương thức tương tự
+        List<SanPham> dsSP = SanPhamQuery.getAll(); // Đảm bảo đây là phương thức đúng
         cboSanPham.removeAllItems();
-        for (SanPham sp : dsSP) {
-            cboSanPham.addItem(sp);
+        if (dsSP != null && !dsSP.isEmpty()) {
+            for (SanPham sp : dsSP) {
+                cboSanPham.addItem(sp); // JComboBox sẽ gọi toString() của SanPham
+            }
+             System.out.println("IMPORT_PRODUCT_VIEW: Loaded " + dsSP.size() + " SanPham.");
+        } else {
+            System.out.println("IMPORT_PRODUCT_VIEW: No SanPham found or error loading.");
         }
     }
 
-    private void themSanPham() {
-        SanPham sp = (SanPham) cboSanPham.getSelectedItem();
-        if (sp == null) return;
+    private void themSanPhamVaoPhieu() {
+        SanPham spChon = (SanPham) cboSanPham.getSelectedItem();
+        if (spChon == null) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một sản phẩm.", "Chưa chọn sản phẩm", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String soLuongStr = txtSoLuong.getText().trim();
+        String donGiaStr = txtDonGia.getText().trim();
+
+        if (soLuongStr.isEmpty() || donGiaStr.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập Số lượng và Đơn giá nhập.", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
         try {
-            int soLuong = Integer.parseInt(txtSoLuong.getText().trim());
-            double donGia = Double.parseDouble(txtDonGia.getText().trim());
+            int soLuong = Integer.parseInt(soLuongStr);
+            double donGia = Double.parseDouble(donGiaStr);
 
-            for (ChiTietHDNhap ct : dsNhap) {
-                if (ct.getMaSP().equals(sp.getMaSP())) {
-                    JOptionPane.showMessageDialog(this, "Sản phẩm đã được thêm trước đó.");
+            if (soLuong <= 0 || donGia <= 0) {
+                JOptionPane.showMessageDialog(this, "Số lượng và Đơn giá nhập phải lớn hơn 0.", "Dữ liệu không hợp lệ", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            // Kiểm tra sản phẩm đã có trong danh sách dsNhap chưa
+            for (ChiTietHDNhap ctTrongPhieu : dsNhap) {
+                if (ctTrongPhieu.getMaSP() == spChon.getMaSP()) {
+                    JOptionPane.showMessageDialog(this, "Sản phẩm '" + spChon.getTenSP() + "' đã được thêm vào phiếu trước đó.", "Sản phẩm đã tồn tại", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
             }
+            // MaHDN sẽ được gán bởi controller sau khi HoaDonNhap được tạo
+            ChiTietHDNhap chiTietMoi = new ChiTietHDNhap(spChon.getMaSP(), 0, soLuong, donGia); // MaHDN tạm là 0
+            dsNhap.add(chiTietMoi);
+            tableModel.addRow(new Object[]{spChon.getMaSP(), spChon.getTenSP(), soLuong, donGia, soLuong * donGia});
 
-            ChiTietHDNhap ct = new ChiTietHDNhap(sp.getMaSP(), "", soLuong, donGia);
-            dsNhap.add(ct);
-            tableModel.addRow(new Object[]{sp.getMaSP(), sp.getTenSP(), soLuong, donGia});
-
+            // Xóa nội dung các trường input sau khi thêm thành công
             txtSoLuong.setText("");
             txtDonGia.setText("");
+            cboSanPham.setSelectedIndex(-1); // Bỏ chọn sản phẩm hiện tại (hoặc focus)
+            cboSanPham.requestFocus(); // Focus lại vào combobox sản phẩm
+            System.out.println("IMPORT_PRODUCT_VIEW: Đã thêm SP ID " + spChon.getMaSP() + " vào phiếu tạm.");
+
         } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "Số lượng và đơn giá phải là số.");
+            JOptionPane.showMessageDialog(this, "Số lượng và Đơn giá nhập phải là số hợp lệ.", "Lỗi định dạng số", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void xacNhanNhap() {
-        String maHDN = txtMaHDN.getText().trim();
-        if (maHDN.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập mã hóa đơn.");
-            return;
-        }
-
         if (dsNhap.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng thêm sản phẩm trước khi xác nhận.");
+            JOptionPane.showMessageDialog(this, "Vui lòng thêm ít nhất một sản phẩm vào phiếu nhập.", "Phiếu nhập trống", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        NhaCungCap ncc = (NhaCungCap) cboNCC.getSelectedItem();
-        if (ncc == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn nhà cung cấp.");
+        NhaCungCap nccChon = (NhaCungCap) cboNCC.getSelectedItem();
+        if (nccChon == null) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn nhà cung cấp.", "Thiếu Nhà Cung Cấp", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Gán mã hóa đơn cho từng chi tiết
-        for (ChiTietHDNhap ct : dsNhap) {
-            ct.setMaHDN(maHDN);
+        // Xác nhận lại với người dùng
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Bạn có chắc chắn muốn xác nhận nhập hàng với các sản phẩm đã chọn không?",
+                "Xác nhận nhập hàng",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
+
+        if (confirm == JOptionPane.NO_OPTION) {
+            return;
         }
+
 
         ImportProductController controller = new ImportProductController();
-        boolean success = controller.nhapHang(maHDN, maNV, ncc.getMaNCC(), dsNhap);
+        boolean success = controller.nhapHang(maNV, nccChon.getMaNCC(), dsNhap);
 
         if (success) {
-            JOptionPane.showMessageDialog(this, "Nhập hàng thành công!");
-            dsNhap.clear();
-            tableModel.setRowCount(0);
-            txtMaHDN.setText("");
+            JOptionPane.showMessageDialog(this, "Nhập hàng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+            dsNhap.clear(); // Xóa danh sách tạm
+            tableModel.setRowCount(0); 
+             System.out.println("IMPORT_PRODUCT_VIEW: Nhập hàng thành công, form đã được reset.");
         } else {
-            JOptionPane.showMessageDialog(this, "Nhập hàng thất bại.");
+            JOptionPane.showMessageDialog(this, "Nhập hàng thất bại. Vui lòng kiểm tra lại thông tin và log lỗi từ console.", "Lỗi nhập hàng", JOptionPane.ERROR_MESSAGE);
+            System.err.println("IMPORT_PRODUCT_VIEW: Lỗi từ controller khi xác nhận nhập hàng.");
         }
     }
 }

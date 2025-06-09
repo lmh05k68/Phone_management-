@@ -10,6 +10,6 @@ public class ManageCustomer {
     }
 
     public void showManageCustomerView() {
-        new ManageCustomerView(maNV).setVisible(true);
+        new ManageCustomerView().setVisible(true);
     }
 }

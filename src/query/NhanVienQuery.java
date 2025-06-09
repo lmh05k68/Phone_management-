@@ -5,70 +5,119 @@ import model.NhanVien;
 
 import java.sql.*;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class NhanVienQuery {
-
-    public boolean insertNhanVienInTransaction(NhanVien nv, Connection conn) throws SQLException {
-        // SỬA TÊN CỘT TRONG SQL
-        String sql = "INSERT INTO nhanvien (manv, tennv, ngaysinh, luong, sodienthoai) VALUES (?, ?, ?, ?, ?)";
-        System.out.println("DEBUG NV_QUERY (insertNhanVienInTransaction): MaNV=" + nv.getMaNV() + ", SoDienThoai= " + nv.getSoDienThoai());
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, nv.getMaNV());
-            stmt.setString(2, nv.getTenNV());
-            try {
-                LocalDate localDateNgaySinh = LocalDate.parse(nv.getNgaySinh());
-                stmt.setDate(3, Date.valueOf(localDateNgaySinh));
-            } catch (DateTimeParseException | NullPointerException e) {
-                System.err.println("Lỗi định dạng hoặc ngày sinh null khi insert NhanVien: " + nv.getNgaySinh());
-                throw new SQLException("Ngày sinh không đúng định dạng YYYY-MM-DD hoặc bị null.", e);
+    public static Integer insertNhanVienAndGetId(NhanVien nv, Connection conn) throws SQLException {
+        String sql = "INSERT INTO nhanvien (tennv, ngaysinh, luong, sodienthoai) VALUES (?, ?, ?, ?)";
+        System.out.println("NV_QUERY (insertAndGetId): Chuẩn bị insert NhanVien: TenNV=" + nv.getTenNV());
+        ResultSet generatedKeys = null;
+        try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setString(1, nv.getTenNV());
+            if (nv.getNgaySinh() != null) {
+                pstmt.setDate(2, Date.valueOf(nv.getNgaySinh()));
+            } else {
+                pstmt.setNull(2, Types.DATE);
             }
-            stmt.setDouble(4, nv.getLuong());
-            stmt.setString(5, nv.getSoDienThoai()); // << SỬA GETTER, CỘT ĐÃ ĐÚNG
+            pstmt.setDouble(3, nv.getLuong());
+            pstmt.setString(4, nv.getSoDienThoai());
 
-            int rowsAffected = stmt.executeUpdate();
-            return rowsAffected > 0;
+            int affectedRows = pstmt.executeUpdate();
+
+            if (affectedRows == 0) {
+                 System.err.println("NV_QUERY (insertAndGetId): Chèn NhanVien thất bại, không có hàng nào được thêm.");
+                return null;
+            }
+
+            generatedKeys = pstmt.getGeneratedKeys();
+            if (generatedKeys.next()) {
+                int id = generatedKeys.getInt(1);
+                System.out.println("NV_QUERY (insertAndGetId): NhanVien được chèn thành công với ID: " + id);
+                return id;
+            } else {
+                System.err.println("NV_QUERY (insertAndGetId): Chèn NhanVien thành công nhưng không lấy được ID.");
+                return null;
+            }
+        } finally {
+            if(generatedKeys != null) try {generatedKeys.close();} catch (SQLException e) {/* ignored */}
         }
     }
 
-    public boolean kiemTraMaNVTonTai(String maNV) {
-        String sql = "SELECT 1 FROM nhanvien WHERE manv = ?"; // Giả sử tên cột là manv
+    /**
+     * Chèn một nhân viên mới. MaNV là tự sinh.
+     * Phương thức này tự quản lý Connection.
+     * @param nv Đối tượng NhanVien (không cần set MaNV).
+     * @return true nếu chèn thành công, false nếu thất bại.
+     */
+    public static boolean insert(NhanVien nv) {
+        String sql = "INSERT INTO nhanvien (tennv, ngaysinh, luong, sodienthoai) VALUES (?, ?, ?, ?)";
+        System.out.println("NV_QUERY (insert): Chuẩn bị insert NhanVien: TenNV=" + nv.getTenNV());
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) { // Không cần RETURN_GENERATED_KEYS nếu chỉ trả về boolean
+
+            pstmt.setString(1, nv.getTenNV());
+            if (nv.getNgaySinh() != null) {
+                pstmt.setDate(2, Date.valueOf(nv.getNgaySinh()));
+            } else {
+                pstmt.setNull(2, Types.DATE);
+            }
+            pstmt.setDouble(3, nv.getLuong());
+            pstmt.setString(4, nv.getSoDienThoai());
+
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                System.out.println("NV_QUERY (insert): NhanVien được chèn thành công.");
+                return true;
+            } else {
+                System.err.println("NV_QUERY (insert): Chèn NhanVien thất bại.");
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("NV_QUERY (insert): Lỗi SQL khi chèn nhân viên: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static boolean exists(int maNV) {
+        String sql = "SELECT 1 FROM nhanvien WHERE manv = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, maNV);
+            stmt.setInt(1, maNV);
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();
             }
         } catch (SQLException e) {
-            System.err.println("Lỗi SQL khi kiemTraMaNVTonTai cho MaNV " + maNV + ": " + e.getMessage());
+            System.err.println("NV_QUERY (exists): Lỗi SQL khi kiểm tra sự tồn tại của nhân viên MaNV " + maNV + ": " + e.getMessage());
             e.printStackTrace();
-            return true;
+            return false;
         }
     }
 
     public static List<NhanVien> getAll() {
         List<NhanVien> list = new ArrayList<>();
-        // SỬA TÊN CỘT TRONG SQL
-        String sql = "SELECT MaNV, TenNV, NgaySinh, Luong, SoDienThoai FROM NhanVien";
+        String sql = "SELECT manv, tennv, ngaysinh, luong, sodienthoai FROM nhanvien ORDER BY tennv ASC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
             while (rs.next()) {
-                Date sqlDate = rs.getDate("NgaySinh");
-                String ngaySinhStr = (sqlDate != null) ? sqlDate.toLocalDate().toString() : null;
-
+                LocalDate ngaySinh = null;
+                Date sqlDateNgaySinh = rs.getDate("ngaysinh");
+                if (sqlDateNgaySinh != null) {
+                    ngaySinh = sqlDateNgaySinh.toLocalDate();
+                }
                 list.add(new NhanVien(
-                    rs.getString("MaNV"),
-                    rs.getString("TenNV"),
-                    ngaySinhStr,
-                    rs.getDouble("Luong"),
-                    rs.getString("SoDienThoai") // << SỬA TÊN CỘT KHI LẤY TỪ RS
+                    rs.getInt("manv"),
+                    rs.getString("tennv"),
+                    ngaySinh,
+                    rs.getDouble("luong"),
+                    rs.getString("sodienthoai")
                 ));
             }
         } catch (SQLException e) {
+            System.err.println("NV_QUERY (getAll): Lỗi SQL khi lấy tất cả nhân viên: " + e.getMessage());
             e.printStackTrace();
         }
         return list;
@@ -77,106 +126,97 @@ public class NhanVienQuery {
     public static List<NhanVien> search(String keyword, String type) {
         List<NhanVien> list = new ArrayList<>();
         String column;
+        boolean searchById = false;
         switch (type) {
-            case "Mã NV": column = "MaNV"; break;
-            case "SĐT": column = "SoDienThoai"; break; // << SỬA TÊN CỘT
+            case "Mã NV":
+                column = "manv";
+                searchById = true;
+                break;
+            case "SĐT": column = "sodienthoai"; break;
             case "Tên":
-            default: column = "TenNV"; break;
+            default: column = "LOWER(tennv)"; // Để tìm kiếm không phân biệt hoa thường
+                     keyword = keyword.toLowerCase(); // Chuyển keyword sang chữ thường
+                     break;
         }
 
-        // SỬA TÊN CỘT TRONG SQL
-        String sql = "SELECT MaNV, TenNV, NgaySinh, Luong, SoDienThoai FROM NhanVien WHERE " + column + " ILIKE ?";
+        String sql = "SELECT manv, tennv, ngaysinh, luong, sodienthoai FROM nhanvien WHERE ";
+        if (searchById) {
+            sql += column + " = ?";
+        } else if (type.equals("SĐT")) {
+            sql += column + " LIKE ?"; // Cho phép tìm SĐT chứa keyword
+        }
+        else { // Tìm tên
+            sql += column + " LIKE ?"; // ILIKE cho PostgreSQL, hoặc LOWER() cho các DB khác
+        }
+        sql += " ORDER BY tennv ASC";
+
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, "%" + keyword + "%");
+
+            if (searchById) {
+                try {
+                    stmt.setInt(1, Integer.parseInt(keyword));
+                } catch (NumberFormatException e) {
+                    System.err.println("NV_QUERY (search): Từ khóa cho Mã NV '" + keyword + "' không phải là số.");
+                    return list;
+                }
+            } else {
+                stmt.setString(1, "%" + keyword + "%");
+            }
+
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    Date sqlDate = rs.getDate("NgaySinh");
-                    String ngaySinhStr = (sqlDate != null) ? sqlDate.toLocalDate().toString() : null;
+                     LocalDate ngaySinh = null;
+                    Date sqlDateNgaySinh = rs.getDate("ngaysinh");
+                    if (sqlDateNgaySinh != null) {
+                        ngaySinh = sqlDateNgaySinh.toLocalDate();
+                    }
                     list.add(new NhanVien(
-                        rs.getString("MaNV"),
-                        rs.getString("TenNV"),
-                        ngaySinhStr,
-                        rs.getDouble("Luong"),
-                        rs.getString("SoDienThoai") // << SỬA TÊN CỘT KHI LẤY TỪ RS
+                        rs.getInt("manv"),
+                        rs.getString("tennv"),
+                        ngaySinh,
+                        rs.getDouble("luong"),
+                        rs.getString("sodienthoai")
                     ));
                 }
             }
         } catch (SQLException e) {
+            System.err.println("NV_QUERY (search): Lỗi SQL khi tìm kiếm nhân viên (" + type + ": " + keyword + "): " + e.getMessage());
             e.printStackTrace();
         }
         return list;
     }
-    
-    public static boolean insert(NhanVien nv) {
-        // SỬA TÊN CỘT TRONG SQL
-        String sql = "INSERT INTO NhanVien (MaNV, TenNV, NgaySinh, Luong, SoDienThoai) VALUES (?, ?, ?, ?, ?)";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, nv.getMaNV());
-            stmt.setString(2, nv.getTenNV());
-            try {
-                LocalDate localDateNgaySinh = LocalDate.parse(nv.getNgaySinh());
-                stmt.setDate(3, Date.valueOf(localDateNgaySinh));
-            } catch (DateTimeParseException | NullPointerException e) {
-                System.err.println("Lỗi định dạng hoặc ngày sinh null khi insert nhân viên (static): " + nv.getNgaySinh());
-                stmt.setNull(3, Types.DATE);
-            }
-            stmt.setDouble(4, nv.getLuong());
-            stmt.setString(5, nv.getSoDienThoai()); // << SỬA GETTER
-            return stmt.executeUpdate() > 0;
-        } catch (SQLException e) { // Bỏ IllegalArgumentException vì parse Date đã có try-catch
-            System.err.println("Lỗi SQL khi insert nhân viên (static): " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
-    }
 
     public static boolean update(NhanVien nv) {
-        // SỬA TÊN CỘT TRONG SQL
-        String sql = "UPDATE NhanVien SET TenNV = ?, NgaySinh = ?, Luong = ?, SoDienThoai = ? WHERE MaNV = ?";
+        // MaNV của đối tượng nv đã là int và được set khi đọc từ DB hoặc sau khi insert
+        String sql = "UPDATE nhanvien SET tennv = ?, ngaysinh = ?, luong = ?, sodienthoai = ? WHERE manv = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, nv.getTenNV());
-            try {
-                LocalDate localDateNgaySinh = LocalDate.parse(nv.getNgaySinh());
-                stmt.setDate(2, Date.valueOf(localDateNgaySinh));
-            } catch (DateTimeParseException | NullPointerException e) {
-                System.err.println("Lỗi định dạng hoặc ngày sinh null khi update nhân viên: " + nv.getNgaySinh());
+            if (nv.getNgaySinh() != null) {
+                stmt.setDate(2, Date.valueOf(nv.getNgaySinh()));
+            } else {
                 stmt.setNull(2, Types.DATE);
             }
             stmt.setDouble(3, nv.getLuong());
-            stmt.setString(4, nv.getSoDienThoai()); // << SỬA GETTER
-            stmt.setString(5, nv.getMaNV());
+            stmt.setString(4, nv.getSoDienThoai());
+            stmt.setInt(5, nv.getMaNV());
             return stmt.executeUpdate() > 0;
-        } catch (SQLException e) { // Bỏ IllegalArgumentException
+        } catch (SQLException e) {
+            System.err.println("NV_QUERY (update): Lỗi SQL khi cập nhật nhân viên MaNV " + nv.getMaNV() + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
     }
 
-    public static boolean delete(String maNV) {
-        String sql = "DELETE FROM NhanVien WHERE MaNV = ?";
+    public static boolean delete(int maNV) {
+        String sql = "DELETE FROM nhanvien WHERE manv = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, maNV);
+            stmt.setInt(1, maNV);
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-    
-    public static boolean exists(String maNV) {
-        String sql = "SELECT 1 FROM NhanVien WHERE MaNV = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, maNV);
-            try(ResultSet rs = stmt.executeQuery()){
-                 return rs.next();
-            }
-        } catch (SQLException e) {
-            System.err.println("Lỗi SQL khi kiểm tra sự tồn tại của nhân viên MaNV " + maNV + ": " + e.getMessage());
+             System.err.println("NV_QUERY (delete): Lỗi SQL khi xóa nhân viên MaNV " + maNV + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }

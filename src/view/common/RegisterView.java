@@ -1,23 +1,24 @@
 package view.common;
 
-import controller.common.RegisterController; 
+import controller.common.RegisterController;
 import javax.swing.*;
 import java.awt.*;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException; 
 public class RegisterView extends JFrame {
     private static final long serialVersionUID = 1L;
 
     private final JTextField usernameField = new JTextField(20);
     private final JPasswordField passwordField = new JPasswordField(20);
     private final JComboBox<String> roleComboBox = new JComboBox<>(new String[]{"khachhang", "nhanvien", "admin"});
+    
     private final JPanel khPanel = new JPanel();
-    private final JTextField maKHField = new JTextField(15);
     private final JTextField hoTenKHField = new JTextField(15);
     private final JTextField sdtKHField = new JTextField(15);
+    
     private final JPanel nvPanel = new JPanel();
-    private final JTextField maNVField = new JTextField(15);
     private final JTextField tenNVField = new JTextField(15);
-    private final JTextField ngaySinhField = new JTextField(15);
+    private final JTextField ngaySinhField = new JTextField(15); // Format YYYY-MM-DD
     private final JTextField luongField = new JTextField(15);
     private final JTextField sdtNVField = new JTextField(15);
 
@@ -49,8 +50,8 @@ public class RegisterView extends JFrame {
         khPanel.setLayout(new BoxLayout(khPanel, BoxLayout.Y_AXIS));
         khPanel.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createEtchedBorder(), "Thông tin Khách hàng"));
-        khPanel.add(createStyledFieldPanel("Mã khách hàng*:", maKHField));
-        khPanel.add(Box.createVerticalStrut(5));
+        // khPanel.add(createStyledFieldPanel("Mã khách hàng*:", maKHField)); // Bỏ
+        // khPanel.add(Box.createVerticalStrut(5)); // Bỏ
         khPanel.add(createStyledFieldPanel("Họ và tên*:", hoTenKHField));
         khPanel.add(Box.createVerticalStrut(5));
         khPanel.add(createStyledFieldPanel("Số điện thoại*:", sdtKHField));
@@ -60,8 +61,8 @@ public class RegisterView extends JFrame {
         nvPanel.setLayout(new BoxLayout(nvPanel, BoxLayout.Y_AXIS));
         nvPanel.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createEtchedBorder(), "Thông tin Nhân viên"));
-        nvPanel.add(createStyledFieldPanel("Mã nhân viên*:", maNVField));
-        nvPanel.add(Box.createVerticalStrut(5));
+        // nvPanel.add(createStyledFieldPanel("Mã nhân viên*:", maNVField)); // Bỏ
+        // nvPanel.add(Box.createVerticalStrut(5)); // Bỏ
         nvPanel.add(createStyledFieldPanel("Tên nhân viên*:", tenNVField));
         nvPanel.add(Box.createVerticalStrut(5));
         nvPanel.add(createStyledFieldPanel("Ngày sinh (YYYY-MM-DD)*:", ngaySinhField));
@@ -93,10 +94,10 @@ public class RegisterView extends JFrame {
         usernameField.setFont(commonFont);
         passwordField.setFont(commonFont);
         roleComboBox.setFont(commonFont);
-        maKHField.setFont(commonFont);
+        // maKHField.setFont(commonFont); // Bỏ
         hoTenKHField.setFont(commonFont);
         sdtKHField.setFont(commonFont);
-        maNVField.setFont(commonFont);
+        // maNVField.setFont(commonFont); // Bỏ
         tenNVField.setFont(commonFont);
         ngaySinhField.setFont(commonFont);
         luongField.setFont(commonFont);
@@ -107,12 +108,13 @@ public class RegisterView extends JFrame {
         JScrollPane scrollPane = new JScrollPane(mainPanel);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollPane.setPreferredSize(new Dimension(520, 650));
+        scrollPane.setPreferredSize(new Dimension(520, 600)); // Điều chỉnh chiều cao nếu cần
         scrollPane.setBorder(null);
 
         setContentPane(scrollPane);
-        setSize(530, 700);
-        setMinimumSize(new Dimension(500, 500));
+        // setSize(530, 650); // Điều chỉnh kích thước Frame
+        pack(); // Sử dụng pack để tự động điều chỉnh kích thước
+        setMinimumSize(new Dimension(500, 450));
         setLocationRelativeTo(null);
         System.out.println("REGISTER_VIEW: Constructor RegisterView kết thúc.");
     }
@@ -160,17 +162,17 @@ public class RegisterView extends JFrame {
 
         boolean khVisible = "khachhang".equals(role);
         boolean nvVisible = "nhanvien".equals(role);
-        boolean adminSelected = "admin".equals(role);
-
-
+        
         khPanel.setVisible(khVisible);
         nvPanel.setVisible(nvVisible);
-        if (adminSelected) {
-            khPanel.setVisible(false);
-            nvPanel.setVisible(false);
-        }
-
-
+        
+        // Tự động điều chỉnh kích thước frame khi panel ẩn/hiện
+        // Nên gọi pack() ở cuối hoặc khi frame đã hiển thị
+        // For immediate effect, revalidate and repaint
+        // ((JPanel)getContentPane().getComponent(0)).revalidate(); // Nếu dùng JScrollPane
+        // ((JPanel)getContentPane().getComponent(0)).repaint();
+        // Hoặc đơn giản là pack() nếu chưa hiển thị
+        // pack(); // Gọi pack ở đây có thể làm frame nhấp nháy, tốt hơn là ở constructor hoặc khi hiển thị
         System.out.println("REGISTER_VIEW_updateFieldVisibility: KhachHang Panel visible: " + khPanel.isVisible() + ", NhanVien Panel visible: " + nvPanel.isVisible() + ", Role selected: " + role);
     }
 
@@ -192,58 +194,68 @@ public class RegisterView extends JFrame {
             return;
         }
 
-        String maDoiTuong = ""; 
+        // Thông tin chung
         String hoTen = "";
         String sdt = "";
-        String ngaySinh = null;
+        // Thông tin riêng cho nhân viên
+        String ngaySinhStr = null; 
         String luongStr = null;
+        LocalDate ngaySinhDate = null;
+        double luongDouble = 0.0;
 
         if ("khachhang".equals(role)) {
-            maDoiTuong = maKHField.getText().trim();
             hoTen = hoTenKHField.getText().trim();
             sdt = sdtKHField.getText().trim();
-            if (maDoiTuong.isEmpty() || hoTen.isEmpty() || sdt.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin khách hàng (Mã KH, Họ tên, SĐT).", "Thiếu thông tin khách hàng", JOptionPane.WARNING_MESSAGE);
+            if (hoTen.isEmpty() || sdt.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ Họ tên và SĐT cho khách hàng.", "Thiếu thông tin khách hàng", JOptionPane.WARNING_MESSAGE);
                 return;
             }
         } else if ("nhanvien".equals(role)) {
-            maDoiTuong = maNVField.getText().trim();
             hoTen = tenNVField.getText().trim();
             sdt = sdtNVField.getText().trim();
-            ngaySinh = ngaySinhField.getText().trim();
+            ngaySinhStr = ngaySinhField.getText().trim();
             luongStr = luongField.getText().trim();
-            if (maDoiTuong.isEmpty() || hoTen.isEmpty() || sdt.isEmpty() || ngaySinh.isEmpty() || luongStr.isEmpty()) {
+            if (hoTen.isEmpty() || sdt.isEmpty() || ngaySinhStr.isEmpty() || luongStr.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin nhân viên.", "Thiếu thông tin nhân viên", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             try {
-                LocalDate.parse(ngaySinh); 
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Ngày sinh không hợp lệ. Vui lòng nhập theo định dạng YYYY-MM-DD.", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
+                ngaySinhDate = LocalDate.parse(ngaySinhStr); // Parse ngày sinh
+            } catch (DateTimeParseException e) { // Bắt lỗi parse cụ thể
+                JOptionPane.showMessageDialog(this, "Ngày sinh không hợp lệ. Vui lòng nhập theo định dạng YYYY-MM-DD.", "Lỗi định dạng ngày sinh", JOptionPane.ERROR_MESSAGE);
                 ngaySinhField.requestFocus();
                 return;
             }
             try {
-                Double.parseDouble(luongStr);
+                luongDouble = Double.parseDouble(luongStr); // Parse lương
+                if (luongDouble < 0) {
+                     JOptionPane.showMessageDialog(this, "Lương không được là số âm.", "Lương không hợp lệ", JOptionPane.ERROR_MESSAGE);
+                    luongField.requestFocus();
+                    return;
+                }
             } catch (NumberFormatException e) {
-                 JOptionPane.showMessageDialog(this, "Lương phải là một số hợp lệ.", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
+                 JOptionPane.showMessageDialog(this, "Lương phải là một số hợp lệ.", "Lỗi định dạng lương", JOptionPane.ERROR_MESSAGE);
                 luongField.requestFocus();
                 return;
             }
         } else if ("admin".equals(role)) {
              System.out.println("REGISTER_VIEW: Đăng ký cho vai trò admin.");
+             // không cần thông tin cá nhân cho admin trong ví dụ này
         }
 
-        System.out.println("REGISTER_VIEW: Chuẩn bị gọi RegisterController.handleRegister với Username: " + username + ", Role: " + role + ", MaDoiTuong: " + maDoiTuong);
+        System.out.println("REGISTER_VIEW: Chuẩn bị gọi RegisterController.handleRegister với Username: " + username + ", Role: " + role);
         RegisterController controller = new RegisterController();
-        boolean success = controller.handleRegister(username, password, role, maDoiTuong, hoTen, sdt, ngaySinh, luongStr);
+        
+        // Gọi controller với các tham số đã được xử lý
+        boolean success = controller.handleRegister(username, password, role, hoTen, sdt, ngaySinhDate, luongDouble);
 
         if (success) {
             JOptionPane.showMessageDialog(this, "Đăng ký tài khoản thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
             System.out.println("REGISTER_VIEW: Đăng ký thành công cho user: " + username);
-            this.dispose();
+            this.dispose(); // Đóng cửa sổ đăng ký
         } else {
-            JOptionPane.showMessageDialog(this, "Đăng ký thất bại! Tên đăng nhập hoặc Mã đối tượng có thể đã tồn tại, hoặc có lỗi khác.", "Lỗi đăng ký", JOptionPane.ERROR_MESSAGE);
+            // Thông báo lỗi chung, chi tiết lỗi đã được log ở controller
+            JOptionPane.showMessageDialog(this, "Đăng ký thất bại! Tên đăng nhập có thể đã tồn tại, hoặc có lỗi khác. Vui lòng kiểm tra console log.", "Lỗi đăng ký", JOptionPane.ERROR_MESSAGE);
             System.err.println("REGISTER_VIEW: Đăng ký thất bại cho user: " + username);
         }
     }

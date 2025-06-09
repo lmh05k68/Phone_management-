@@ -8,14 +8,14 @@ import java.awt.event.ActionListener;
 
 public class ReturnRequestListView extends JFrame {
     private static final long serialVersionUID = 1L;
-    public JTable table;
-    public DefaultTableModel model;
+    private JTable table; // Để private, controller không nên truy cập trực tiếp JTable
+    private DefaultTableModel model; // Để private, cung cấp getter nếu controller cần
     private JButton btnBack, btnApprove, btnReject;
 
     public ReturnRequestListView() {
         System.out.println("VIEW: Constructor ReturnRequestListView bắt đầu.");
         setTitle("Danh sách yêu cầu đổi/trả");
-        setSize(880, 520); // Điều chỉnh kích thước nếu cần
+        setSize(920, 550); // Tăng kích thước một chút để vừa các cột
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -28,33 +28,19 @@ public class ReturnRequestListView extends JFrame {
         lblTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
         mainPanel.add(lblTitle, BorderLayout.NORTH);
 
-        String[] columns = {"Mã YC", "Mã KH", "Mã SP", "Mã ĐH", "Ngày YC", "Lý Do", "Trạng Thái"};
+        // Các cột này khớp với những gì controller đang thêm vào
+        String[] columns = {"Mã YC (ID)", "Mã KH", "Mã SP", "Mã ĐH", "Ngày YC", "Lý Do", "Trạng Thái"};
         model = new DefaultTableModel(columns, 0) {
             private static final long serialVersionUID = 1L;
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false;
+                return false; // Không cho phép sửa trực tiếp trên bảng
             }
         };
         System.out.println("VIEW: DefaultTableModel đã được khởi tạo.");
 
         table = new JTable(model);
-        table.setFillsViewportHeight(true);
-        table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-        table.setRowHeight(28);
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.getTableHeader().setReorderingAllowed(false);
-
-        // Đặt độ rộng cột
-        TableColumnModel columnModel = table.getColumnModel();
-        columnModel.getColumn(0).setPreferredWidth(70);  // Mã YC
-        columnModel.getColumn(1).setPreferredWidth(70);  // Mã KH
-        columnModel.getColumn(2).setPreferredWidth(70);  // Mã SP
-        columnModel.getColumn(3).setPreferredWidth(80);  // Mã ĐH
-        columnModel.getColumn(4).setPreferredWidth(140); // Ngày YC (cho cả giờ phút)
-        columnModel.getColumn(5).setPreferredWidth(280); // Lý do
-        columnModel.getColumn(6).setPreferredWidth(100); // Trạng thái
+        styleTable(table); // Gọi hàm style
         System.out.println("VIEW: JTable và TableColumnModel đã được cấu hình.");
 
 
@@ -62,28 +48,51 @@ public class ReturnRequestListView extends JFrame {
         mainPanel.add(scrollPane, BorderLayout.CENTER);
         System.out.println("VIEW: JScrollPane đã được thêm vào mainPanel.");
 
-        JPanel actionButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
-        actionButtonPanel.setOpaque(false);
+        // Panel cho các nút hành động (Duyệt, Từ chối)
+        JPanel actionButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5)); // Căn giữa
+        actionButtonPanel.setOpaque(false); // Để màu nền của mainPanel hiển thị
         btnApprove = createStyledButton("Duyệt yêu cầu", new Color(40, 167, 69));
         btnReject = createStyledButton("Từ chối yêu cầu", new Color(220, 53, 69));
         actionButtonPanel.add(btnApprove);
         actionButtonPanel.add(btnReject);
 
-        JPanel bottomOuterPanel = new JPanel(new BorderLayout());
-        bottomOuterPanel.setOpaque(false);
-        bottomOuterPanel.add(actionButtonPanel, BorderLayout.NORTH);
-
+        // Panel cho nút Trở về
         btnBack = createStyledButton("Trở về", new Color(108, 117, 125));
-        JPanel backButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        JPanel backButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10)); // Căn phải
         backButtonPanel.setOpaque(false);
         backButtonPanel.add(btnBack);
-        bottomOuterPanel.add(backButtonPanel, BorderLayout.SOUTH);
 
-        mainPanel.add(bottomOuterPanel, BorderLayout.SOUTH);
+        // Gom action buttons và back button
+        JPanel bottomControlsPanel = new JPanel(new BorderLayout());
+        bottomControlsPanel.setOpaque(false);
+        bottomControlsPanel.add(actionButtonPanel, BorderLayout.CENTER);
+        bottomControlsPanel.add(backButtonPanel, BorderLayout.EAST);
+
+
+        mainPanel.add(bottomControlsPanel, BorderLayout.SOUTH);
         System.out.println("VIEW: Các panel nút đã được thêm vào mainPanel.");
 
         setContentPane(mainPanel);
         System.out.println("VIEW: Constructor ReturnRequestListView kết thúc.");
+    }
+
+    private void styleTable(JTable tbl) {
+        tbl.setFillsViewportHeight(true);
+        tbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        tbl.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
+        tbl.setRowHeight(28);
+        tbl.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tbl.getTableHeader().setReorderingAllowed(false);
+        tbl.setAutoCreateRowSorter(true); // Cho phép sắp xếp theo cột
+
+        TableColumnModel columnModel = tbl.getColumnModel();
+        columnModel.getColumn(0).setPreferredWidth(80);  // Mã YC (ID)
+        columnModel.getColumn(1).setPreferredWidth(70);  // Mã KH
+        columnModel.getColumn(2).setPreferredWidth(70);  // Mã SP
+        columnModel.getColumn(3).setPreferredWidth(80);  // Mã ĐH
+        columnModel.getColumn(4).setPreferredWidth(120); // Ngày YC
+        columnModel.getColumn(5).setPreferredWidth(300); // Lý do (cho rộng hơn)
+        columnModel.getColumn(6).setPreferredWidth(110); // Trạng thái
     }
 
     private JButton createStyledButton(String text, Color backgroundColor) {
@@ -92,7 +101,7 @@ public class ReturnRequestListView extends JFrame {
         btn.setFocusPainted(false);
         btn.setBackground(backgroundColor);
         btn.setForeground(Color.WHITE);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(backgroundColor.darker(), 1),
                 BorderFactory.createEmptyBorder(8, 18, 8, 18)
@@ -100,6 +109,7 @@ public class ReturnRequestListView extends JFrame {
         return btn;
     }
 
+    // Các phương thức để Controller gắn Listener
     public void addApproveButtonListener(ActionListener listener) {
         btnApprove.addActionListener(listener);
     }
@@ -112,24 +122,61 @@ public class ReturnRequestListView extends JFrame {
         btnBack.addActionListener(listener);
     }
 
+    /**
+     * Lấy ID (dưới dạng String) của yêu cầu đang được chọn trong bảng.
+     * Controller sẽ parse sang int nếu cần.
+     * @return ID của yêu cầu hoặc null nếu không có hàng nào được chọn.
+     */
     public String getSelectedRequestId() {
         int selectedRow = table.getSelectedRow();
         if (selectedRow >= 0) {
-            // Cột 0 là "Mã YC" (iddt)
-            return model.getValueAt(selectedRow, 0).toString();
+            // Cột 0 là "Mã YC (ID)"
+            Object idObj = model.getValueAt(table.convertRowIndexToModel(selectedRow), 0); // Luôn dùng convertRowIndexToModel
+            return idObj != null ? idObj.toString() : null;
         }
         System.out.println("VIEW_getSelectedRequestId: Không có hàng nào được chọn.");
         return null;
     }
 
+    /**
+     * Lấy trạng thái hiện tại của yêu cầu đang được chọn trong bảng.
+     * @return Trạng thái (String) hoặc null nếu không có hàng nào được chọn hoặc trạng thái là null.
+     */
     public String getCurrentStatusOfSelectedRequest() {
         int selectedRow = table.getSelectedRow();
         if (selectedRow >= 0) {
             // Cột 6 là "Trạng Thái"
-            Object statusObj = model.getValueAt(selectedRow, 6);
+            Object statusObj = model.getValueAt(table.convertRowIndexToModel(selectedRow), 6);
             return statusObj != null ? statusObj.toString() : null;
         }
         System.out.println("VIEW_getCurrentStatusOfSelectedRequest: Không có hàng nào được chọn.");
         return null;
     }
+
+    /**
+     * Cung cấp quyền truy cập vào DefaultTableModel để Controller có thể load dữ liệu.
+     * @return DefaultTableModel của bảng.
+     */
+    public DefaultTableModel getModel() {
+        return model;
+    }
+
+     // Main method để test (tùy chọn)
+    // public static void main(String[] args) {
+    //     try {
+    //         for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+    //             if ("Nimbus".equals(info.getName())) {
+    //                 UIManager.setLookAndFeel(info.getClassName());
+    //                 break;
+    //             }
+    //         }
+    //     } catch (Exception e) {
+    //         // Nếu Nimbus không có sẵn, dùng Look and Feel mặc định của hệ thống
+    //     }
+    //     SwingUtilities.invokeLater(() -> {
+    //         ReturnRequestListView view = new ReturnRequestListView();
+    //         new ReturnRequestListController(view); // Khởi tạo controller và truyền view
+    //         view.setVisible(true);
+    //     });
+    // }
 }

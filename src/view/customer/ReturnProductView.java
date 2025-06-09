@@ -1,125 +1,97 @@
-package view.customer;
-
+package view.customer; 
 import javax.swing.*;
 import java.awt.*;
-
 public class ReturnProductView extends JFrame {
     private static final long serialVersionUID = 1L;
+    private final int maKH; 
+    private JTextField txtMaSP, txtMaDonHang, txtLyDo;
+    // private JTextField txtMaDoiTra; // Loại bỏ nếu MaDoiTra (idDT) tự sinh
+    private JButton btnGuiYeuCau, btnTroVe;
 
-    // Thêm JTextField cho Mã Đổi Trả
-    private JTextField txtMaDoiTra, txtMaKH, txtMaSP, txtMaDonHang;
-    private JTextArea txtLyDo;
-    private JButton btnGuiYeuCau, btnBack;
-    private String customerId;
-
-    public ReturnProductView(String maKH) {
-        this.customerId = maKH;
-
-        setTitle("Yêu cầu đổi/trả sản phẩm");
-        setSize(450, 430); // Tăng chiều cao một chút cho trường mới
+    // Constructor nhận int maKH
+    public ReturnProductView(int maKH) { // <<<< SỬA CONSTRUCTOR
+        this.maKH = maKH;
+        setTitle("Yêu Cầu Đổi/Trả Sản Phẩm - KH: " + maKH);
+        // Đặt kích thước, layout, các thành phần UI khác ở đây
+        // Ví dụ:
+        setSize(500, 350); // Kích thước ví dụ
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
+        initUI(); // Gọi hàm khởi tạo UI
+    }
+
+    private void initUI() {
         JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
-        // Mã Đổi Trả (Mới)
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 0.0;
-        gbc.anchor = GridBagConstraints.WEST;
-        panel.add(new JLabel("Mã đổi trả:"), gbc);
+        Font labelFont = new Font("Segoe UI", Font.BOLD, 14);
+        Font textFont = new Font("Segoe UI", Font.PLAIN, 14);
+        JLabel lblMaSP = new JLabel("Mã Sản Phẩm*:");
+        lblMaSP.setFont(labelFont);
+        txtMaSP = new JTextField();
+        txtMaSP.setFont(textFont);
 
+        JLabel lblMaDonHang = new JLabel("Mã Đơn Hàng*:");
+        lblMaDonHang.setFont(labelFont);
+        txtMaDonHang = new JTextField();
+        txtMaDonHang.setFont(textFont);
+
+        JLabel lblLyDo = new JLabel("Lý do đổi/trả*:");
+        lblLyDo.setFont(labelFont);
+        txtLyDo = new JTextField(); // Hoặc JTextArea nếu lý do dài
+        txtLyDo.setFont(textFont);
+
+
+        btnGuiYeuCau = new JButton("Gửi Yêu Cầu");
+        styleButton(btnGuiYeuCau, new Color(33, 150, 243));
+
+        btnTroVe = new JButton("Trở Về");
+        styleButton(btnTroVe, new Color(108, 117, 125));
+
+
+        // Layout
+        // gbc.gridx = 0; gbc.gridy = 0; panel.add(lblMaDoiTra, gbc);
+        // gbc.gridx = 1; panel.add(txtMaDoiTra, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 0; // Bắt đầu từ row 0
+        panel.add(lblMaSP, gbc);
         gbc.gridx = 1;
-        gbc.weightx = 1.0;
-        txtMaDoiTra = new JTextField(15);
-        txtMaDoiTra.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        panel.add(txtMaDoiTra, gbc);
-
-
-        // Mã Khách Hàng
-        gbc.gridx = 0;
-        gbc.gridy = 1; // Tăng gridy
-        gbc.weightx = 0.0;
-        gbc.anchor = GridBagConstraints.WEST;
-        panel.add(new JLabel("Mã khách hàng:"), gbc);
-
-        gbc.gridx = 1;
-        gbc.weightx = 1.0;
-        txtMaKH = new JTextField(customerId, 15);
-        txtMaKH.setEditable(false);
-        txtMaKH.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        panel.add(txtMaKH, gbc);
-
-        // Mã Sản Phẩm
-        gbc.gridx = 0;
-        gbc.gridy = 2; // Tăng gridy
-        gbc.weightx = 0.0;
-        panel.add(new JLabel("Mã sản phẩm:"), gbc);
-
-        gbc.gridx = 1;
-        gbc.weightx = 1.0;
-        txtMaSP = new JTextField(15);
-        txtMaSP.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         panel.add(txtMaSP, gbc);
 
-        // Mã Đơn Hàng
-        gbc.gridx = 0;
-        gbc.gridy = 3; // Tăng gridy
-        gbc.weightx = 0.0;
-        panel.add(new JLabel("Mã đơn hàng:"), gbc);
-
+        gbc.gridx = 0; gbc.gridy = 1;
+        panel.add(lblMaDonHang, gbc);
         gbc.gridx = 1;
-        gbc.weightx = 1.0;
-        txtMaDonHang = new JTextField(15);
-        txtMaDonHang.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         panel.add(txtMaDonHang, gbc);
 
-        // Lý do đổi/trả
-        gbc.gridx = 0;
-        gbc.gridy = 4; // Tăng gridy
-        gbc.weightx = 0.0;
-        gbc.anchor = GridBagConstraints.NORTHWEST;
-        panel.add(new JLabel("Lý do đổi/trả:"), gbc);
-
+        gbc.gridx = 0; gbc.gridy = 2;
+        panel.add(lblLyDo, gbc);
         gbc.gridx = 1;
-        gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.weighty = 1.0;
-        txtLyDo = new JTextArea(4, 15);
-        txtLyDo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        txtLyDo.setLineWrap(true);
-        txtLyDo.setWrapStyleWord(true);
-        JScrollPane scrollPaneLyDo = new JScrollPane(txtLyDo);
-        scrollPaneLyDo.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-        panel.add(scrollPaneLyDo, gbc);
+        panel.add(txtLyDo, gbc);
 
-        // Buttons
-        btnGuiYeuCau = new JButton("Gửi yêu cầu");
-        btnBack = new JButton("Trở về");
-        styleButton(btnGuiYeuCau, new Color(33, 150, 243));
-        styleButton(btnBack, new Color(108, 117, 125));
-
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         buttonPanel.add(btnGuiYeuCau);
-        buttonPanel.add(btnBack);
+        buttonPanel.add(btnTroVe);
 
-        gbc.gridx = 0;
-        gbc.gridy = 5; // Tăng gridy
+        gbc.gridx = 0; gbc.gridy = 3;
         gbc.gridwidth = 2;
-        gbc.weighty = 0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.fill = GridBagConstraints.NONE;
         gbc.anchor = GridBagConstraints.CENTER;
         panel.add(buttonPanel, gbc);
 
         setContentPane(panel);
 
-        btnBack.addActionListener(e -> dispose());
+        // Action listener cho nút Trở về
+        btnTroVe.addActionListener(e -> {
+            dispose();
+            new CustomerView(this.maKH).setVisible(true); // Mở lại CustomerView
+        });
+
+        // Nút Gửi Yêu Cầu sẽ được controller gắn listener
     }
 
     private void styleButton(JButton button, Color backgroundColor) {
@@ -127,36 +99,18 @@ public class ReturnProductView extends JFrame {
         button.setBackground(backgroundColor);
         button.setForeground(Color.WHITE);
         button.setFocusPainted(false);
-        button.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(backgroundColor.darker(), 1),
+            BorderFactory.createEmptyBorder(8, 15, 8, 15)
+        ));
     }
 
-    // Getter cho Mã Đổi Trả
-    public String getMaDoiTra() {
-        return txtMaDoiTra.getText();
-    }
-
-    public String getMaKH() {
-        return txtMaKH.getText();
-    }
-
-    public String getMaSP() {
-        return txtMaSP.getText();
-    }
-
-    public String getMaDonHang() {
-        return txtMaDonHang.getText();
-    }
-
-    public String getLyDo() {
-        return txtLyDo.getText();
-    }
-
-    public JButton getBtnGuiYeuCau() {
-        return btnGuiYeuCau;
-    }
-
-    public JButton getBtnBack() {
-        return btnBack;
-    }
+    // Getters cho controller lấy thông tin từ form
+    // public String getMaDoiTra() { return txtMaDoiTra.getText(); } // Loại bỏ
+    public String getMaSP() { return txtMaSP.getText(); }
+    public String getMaDonHang() { return txtMaDonHang.getText(); }
+    public String getLyDo() { return txtLyDo.getText(); }
+    public JButton getBtnGuiYeuCau() { return btnGuiYeuCau; }
+    public int getMaKHFromView() { return this.maKH;} // Cung cấp MaKH cho controller nếu cần
 }

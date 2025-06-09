@@ -1,55 +1,58 @@
 package controller.customer;
 
 import model.DoiTra;
-import query.DoiTraQuery;
+import query.DoiTraQuery; // Gọi static
 import view.customer.ReturnProductView;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.Date; // Sử dụng java.util.Date
-
+import java.time.LocalDate; 
 public class ReturnProductController {
     private ReturnProductView view;
-
-    public ReturnProductController(ReturnProductView view) {
+    private final int maKHController;
+    public ReturnProductController(ReturnProductView view, int maKH) {
         this.view = view;
-
+        this.maKHController = maKH;
         this.view.getBtnGuiYeuCau().addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    String maDoiTra = view.getMaDoiTra().trim(); // Lấy mã đổi trả từ View
-                    String maKH = view.getMaKH().trim();
-                    String maSP = view.getMaSP().trim();
-                    String maDonHang = view.getMaDonHang().trim();
+                    String maSPStr = view.getMaSP().trim();
+                    String maDonHangStr = view.getMaDonHang().trim();
                     String lyDo = view.getLyDo().trim();
 
-                    System.out.println("DEBUG Controller: maDoiTra từ View: '" + maDoiTra + "'");
-
-                    if (maDoiTra.isEmpty() || maKH.isEmpty() || maSP.isEmpty() || maDonHang.isEmpty() || lyDo.isEmpty()) {
-                        JOptionPane.showMessageDialog(view, "Vui lòng điền đầy đủ thông tin, bao gồm cả Mã Đổi Trả.", "Lỗi nhập liệu", JOptionPane.ERROR_MESSAGE);
+                    if (maSPStr.isEmpty() || maDonHangStr.isEmpty() || lyDo.isEmpty()) {
+                        JOptionPane.showMessageDialog(view, "Vui lòng điền đầy đủ thông tin Mã SP, Mã Đơn Hàng và Lý do.", "Lỗi nhập liệu", JOptionPane.ERROR_MESSAGE);
                         return;
                     }
 
-                    // Truyền maDoiTra vào constructor của DoiTra
-                    DoiTra doiTra = new DoiTra(maDoiTra, maKH, maSP, maDonHang, new Date(), lyDo);
-                    System.out.println("DEBUG Controller: idDT trong đối tượng DoiTra sau khi khởi tạo: '" + doiTra.getIdDT() + "'");
+                    int maSP = Integer.parseInt(maSPStr);
+                    int maDonHang = Integer.parseInt(maDonHangStr);
 
-                    boolean success = DoiTraQuery.themYeuCauDoiTra(doiTra);
+                    // Tạo đối tượng DoiTra không cần idDT ban đầu
+                    // Sử dụng maKHController (int) đã lưu
+                    DoiTra doiTra = new DoiTra(maKHController, maSP, maDonHang, LocalDate.now(), lyDo); // Trạng thái mặc định "Chờ xử lý"
 
-                    if (success) {
-                        JOptionPane.showMessageDialog(view, "Gửi yêu cầu đổi trả thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    // Gọi phương thức static từ DoiTraQuery
+                    // Giả sử themYeuCauDoiTraAndGetId trả về Integer là idDT mới, hoặc chỉ themYeuCauDoiTra nếu không cần ID
+                    Integer idDTGenerated = DoiTraQuery.themYeuCauDoiTraAndGetId(doiTra);
+
+                    if (idDTGenerated != null && idDTGenerated > 0) {
+                        JOptionPane.showMessageDialog(view, "Gửi yêu cầu đổi trả thành công! Mã yêu cầu: " + idDTGenerated, "Thành Công", JOptionPane.INFORMATION_MESSAGE);
                         view.dispose();
+                        // new CustomerView(maKHController).setVisible(true); // Mở lại CustomerView nếu cần
                     } else {
-                        // Thông báo lỗi cụ thể hơn có thể đã được DoiTraQuery in ra console
-                        JOptionPane.showMessageDialog(view, "Gửi yêu cầu thất bại. Vui lòng kiểm tra lại thông tin hoặc xem log lỗi.", "Thất bại", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(view, "Gửi yêu cầu thất bại. Vui lòng kiểm tra lại thông tin (Mã đơn hàng có tồn tại?) hoặc xem log lỗi.", "Thất Bại", JOptionPane.ERROR_MESSAGE);
                     }
 
-                } catch (Exception ex) {
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(view, "Mã sản phẩm và Mã đơn hàng phải là số nguyên.", "Lỗi Định Dạng Số", JOptionPane.ERROR_MESSAGE);
+                }
+                catch (Exception ex) {
                     System.err.println("Lỗi trong ReturnProductController: " + ex.getMessage());
                     ex.printStackTrace();
-                    JOptionPane.showMessageDialog(view, "Đã xảy ra lỗi hệ thống: " + ex.getMessage(), "Lỗi hệ thống", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(view, "Đã xảy ra lỗi hệ thống: " + ex.getMessage(), "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });

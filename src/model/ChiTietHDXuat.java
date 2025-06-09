@@ -1,28 +1,44 @@
 package model;
 
 public class ChiTietHDXuat {
-    private String maHDX;
-    private String maSP;
+    private int maSP; // Đổi sang int (khóa ngoại)
+    private int maHDX; 
     private int soLuong;
-    private double donGiaXuat;
-
-    public ChiTietHDXuat(String maHDX, String maSP, int soLuong, double donGiaXuat) {
+    private double donGiaXuat; 
+    public ChiTietHDXuat(int maHDX, int maSP, int soLuong, double donGiaXuat) {
         this.maHDX = maHDX;
         this.maSP = maSP;
         this.soLuong = soLuong;
         this.donGiaXuat = donGiaXuat;
     }
-    public ChiTietHDXuat(String maSP, int soLuong, double donGiaXuat) {
+    public ChiTietHDXuat(int maSP, int soLuong, double donGiaXuat) {
         this.maSP = maSP;
         this.soLuong = soLuong;
         this.donGiaXuat = donGiaXuat;
     }
-    public String getMaHDX() { return maHDX; }
-    public void setMaHDX(String maHDX) { this.maHDX = maHDX; }
-    public String getMaSP() { return maSP; }
-    public void setMaSP(String maSP) { this.maSP = maSP; }
+    
+    public ChiTietHDXuat() {
+    }
+
+    // Getters
+    public int getMaSP() { return maSP; }
+    public int getMaHDX() { return maHDX; }
     public int getSoLuong() { return soLuong; }
-    public void setSoLuong(int soLuong) { this.soLuong = soLuong; }
     public double getDonGiaXuat() { return donGiaXuat; }
+
+    // Setters
+    public void setMaSP(int maSP) { this.maSP = maSP; }
+    public void setMaHDX(int maHDX) { this.maHDX = maHDX; }
+    public void setSoLuong(int soLuong) { this.soLuong = soLuong; }
     public void setDonGiaXuat(double donGiaXuat) { this.donGiaXuat = donGiaXuat; }
+
+    @Override
+    public String toString() {
+        return "ChiTietHDXuat{" +
+               "maSP=" + maSP +
+               ", maHDX=" + maHDX +
+               ", soLuong=" + soLuong +
+               ", donGiaXuat=" + donGiaXuat +
+               '}';
+    }
 }

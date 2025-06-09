@@ -1,52 +1,33 @@
 package controller.customer;
 
-import dbConnection.DBConnection;
+import model.PhieuBaoHanh;
+import query.PhieuBaoHanhQuery; 
+import java.time.LocalDate;
+public class WarrantyRequest { 
+    public boolean createWarrantyRequest(int maSP, LocalDate ngayNhan, LocalDate ngayTraDuKien, int maKH) {
+        System.out.println("WARRANTY_REQUEST_CONTROLLER: Tạo yêu cầu BH. MaKH=" + maKH + ", MaSP=" + maSP +
+                           ", NgayNhan=" + ngayNhan + ", NgayTraDuKien=" + ngayTraDuKien);
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
-public class WarrantyRequest {
-    public static boolean createWarrantyRequest(String idBH, String maSP, String ngayNhan, String ngayTra, String maKH) {
-        if (isIdBHExists(idBH)) {
-            return false; 
-        }
-
-        String sql = "INSERT INTO PhieuBaoHanh (idBH, MaSP, NgayNhanSanPham, NgayTraSanPham, MaKH, TrangThai) " +
-                     "VALUES (?, ?, ?, ?, ?, 'Đang xử lý')";
-
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, idBH);
-            ps.setString(2, maSP);
-            ps.setDate(3, java.sql.Date.valueOf(ngayNhan));
-            ps.setDate(4, java.sql.Date.valueOf(ngayTra));
-            ps.setString(5, maKH);
-
-            return ps.executeUpdate() > 0;
-
-        } catch (SQLException e) {
-            e.printStackTrace();
+        if (maSP <= 0 || ngayNhan == null) {
+            System.err.println("WARRANTY_REQUEST_CONTROLLER: Thông tin đầu vào không hợp lệ (MaSP hoặc Ngày nhận).");
             return false;
         }
-    }
+        if (ngayTraDuKien != null && ngayTraDuKien.isBefore(ngayNhan)) {
+            System.err.println("WARRANTY_REQUEST_CONTROLLER: Ngày trả dự kiến không thể trước ngày nhận.");
+            return false;
+        }
 
-    private static boolean isIdBHExists(String idBH) {
-        String sql = "SELECT 1 FROM PhieuBaoHanh WHERE idBH = ?";
 
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        String trangThaiBanDau = "Chờ tiếp nhận"; 
+        PhieuBaoHanh pbh = new PhieuBaoHanh(maSP, ngayNhan, ngayTraDuKien, maKH, trangThaiBanDau);
+        Integer idBHGenerated = PhieuBaoHanhQuery.insertPhieuBaoHanhAndGetId(pbh);
 
-            ps.setString(1, idBH);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next(); 
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
+        if (idBHGenerated != null && idBHGenerated > 0) {
+            System.out.println("WARRANTY_REQUEST_CONTROLLER: Yêu cầu bảo hành đã được tạo với IDBH: " + idBHGenerated);
             return true;
+        } else {
+            System.err.println("WARRANTY_REQUEST_CONTROLLER: Lỗi khi lưu phiếu bảo hành vào cơ sở dữ liệu.");
+            return false;
         }
     }
 }
