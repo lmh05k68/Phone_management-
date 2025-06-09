@@ -17,19 +17,19 @@ public class HoaDonXuatQuery {
                                                  boolean suDungDiemDeGiamGia, Connection conn) throws SQLException {
         System.out.println("HDX_QUERY (insertFullGetIdTx): Bắt đầu. MaKH ban đầu=" + hdx.getMaKH());
         Integer maHDXGenerated = null;
-
         Integer maKHLuuDB = hdx.getMaKH();
-        if (maKHLuuDB == null && // Chỉ cần kiểm tra null nếu ID tự sinh luôn dương
+        if (maKHLuuDB == null &&
             (tenKHMoi != null && !tenKHMoi.trim().isEmpty() && sdtKHMoi != null && !sdtKHMoi.trim().isEmpty())) {
             KhachHang khMoi = new KhachHang(tenKHMoi.trim(), sdtKHMoi.trim(), 0);
             maKHLuuDB = KhachHangQuery.insertKhachHangAndGetId(khMoi, conn);
-            if (maKHLuuDB == null) { // Nếu ID tự sinh không thể <=0, chỉ cần kiểm tra null
+            if (maKHLuuDB == null) {
                 throw new SQLException("Lỗi khi tạo khách hàng mới, không nhận được ID.");
             }
             hdx.setMaKH(maKHLuuDB);
             System.out.println("HDX_QUERY (insertFullGetIdTx): Đã tạo KH mới với MaKH: " + maKHLuuDB);
         }
 
+        // Bước 2: Insert hoadonxuat
         String sqlHdx = "INSERT INTO hoadonxuat (ngaylap, thanhtien, mucthue, manv, makh) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement stmtHdx = conn.prepareStatement(sqlHdx, Statement.RETURN_GENERATED_KEYS)) {
             stmtHdx.setDate(1, Date.valueOf(hdx.getNgayLap()));
@@ -44,27 +44,28 @@ public class HoaDonXuatQuery {
 
             int hdxRows = stmtHdx.executeUpdate();
             if (hdxRows == 0) {
-                throw new SQLException("Không thể chèn hóa đơn xuất, không có hàng nào được thêm.");
+                throw new SQLException("Không thể chèn hóa đơn xuất.");
             }
 
             try (ResultSet generatedKeys = stmtHdx.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
                     maHDXGenerated = generatedKeys.getInt(1);
-                    hdx.setMaHDX(maHDXGenerated);
-                    System.out.println("HDX_QUERY (insertFullGetIdTx): Hóa Đơn Xuất MaHDX=" + maHDXGenerated + " đã được chèn.");
+                    hdx.setMaHDX(maHDXGenerated); // Gán lại MaHDX cho đối tượng
+                    System.out.println("HDX_QUERY (insertFullGetIdTx): HĐX MaHDX=" + maHDXGenerated + " đã chèn.");
                 } else {
-                    throw new SQLException("Chèn HĐX thành công nhưng không lấy được ID tự sinh.");
+                    throw new SQLException("Không lấy được ID tự sinh cho HĐX.");
                 }
             }
         }
 
+        // Bước 3: Insert chitiethdxuat
         if (hdx.getChiTietList() == null || hdx.getChiTietList().isEmpty()) {
-            throw new SQLException("Danh sách chi tiết hóa đơn rỗng, không thể chèn.");
+            throw new SQLException("Danh sách chi tiết hóa đơn rỗng.");
         }
         String sqlCt = "INSERT INTO chitiethdxuat (masp, mahdx, soluong, dongiaxuat) VALUES (?, ?, ?, ?)";
         try (PreparedStatement stmtCt = conn.prepareStatement(sqlCt)) {
             for (ChiTietHDXuat ct : hdx.getChiTietList()) {
-                ct.setMaHDX(maHDXGenerated); // Quan trọng: gán MaHDX cho chi tiết
+                ct.setMaHDX(maHDXGenerated); // Gán MaHDX cho chi tiết
                 stmtCt.setInt(1, ct.getMaSP());
                 stmtCt.setInt(2, ct.getMaHDX());
                 stmtCt.setInt(3, ct.getSoLuong());
@@ -75,10 +76,10 @@ public class HoaDonXuatQuery {
             System.out.println("HDX_QUERY (insertFullGetIdTx): Đã chèn " + hdx.getChiTietList().size() + " chi tiết HĐX cho MaHDX=" + maHDXGenerated);
         }
 
-        if (!suDungDiemDeGiamGia && hdx.getMaKH() != null) { // MaKH đã là Integer, kiểm tra null là đủ
-            int diemCongThem = (int) (hdx.getThanhTien() / 10000); // Ví dụ quy đổi điểm
+        // Bước 4: Xử lý điểm thưởng
+        if (!suDungDiemDeGiamGia && hdx.getMaKH() != null) {
+            int diemCongThem = (int) (hdx.getThanhTien() / 10000); // Ví dụ: 10,000 VND = 1 điểm
             if (diemCongThem > 0) {
-                // KhachHangQuery.getKhachHangById(int) sẽ nhận giá trị unboxed của hdx.getMaKH()
                 KhachHang khHienTai = KhachHangQuery.getKhachHangById(hdx.getMaKH());
                 String tenKHChoDiem = "N/A";
                 String sdtKHChoDiem = "N/A";
@@ -86,14 +87,13 @@ public class HoaDonXuatQuery {
                 if (khHienTai != null) {
                     tenKHChoDiem = khHienTai.getHoTen();
                     sdtKHChoDiem = khHienTai.getSdtKH();
-                } else if (tenKHMoi != null && !tenKHMoi.trim().isEmpty()) { // KH vừa được tạo trong giao dịch này
+                } else if (tenKHMoi != null && !tenKHMoi.trim().isEmpty()) {
                     tenKHChoDiem = tenKHMoi.trim();
-                    sdtKHChoDiem = sdtKHMoi != null ? sdtKHMoi.trim() : "N/A";
+                    sdtKHChoDiem = (sdtKHMoi != null) ? sdtKHMoi.trim() : "N/A";
                 }
-                // Constructor của DiemThuong cho việc tạo mới (maTichDiem tự sinh)
-                // DiemThuong(int maKH, String tenKH, int maDonHang, int soDiem, LocalDate ngayTichLuy, String sdtKH)
+
                 DiemThuong dt = new DiemThuong(
-                        hdx.getMaKH(), // Auto-unboxed
+                        hdx.getMaKH(), // MaKH (đã là int sau khi unbox từ Integer)
                         tenKHChoDiem,
                         maHDXGenerated, // MaDonHang (MaHDX)
                         diemCongThem,
@@ -102,17 +102,20 @@ public class HoaDonXuatQuery {
                 );
 
                 Integer maTichDiemGenerated = DiemThuongQuery.insertDiemThuongAndGetId(dt, conn);
-                if (maTichDiemGenerated == null || maTichDiemGenerated <= 0) { // Kiểm tra ID trả về
-                     throw new SQLException("Lỗi khi tạo bản ghi điểm thưởng, không nhận được ID hợp lệ.");
+                if (maTichDiemGenerated == null || maTichDiemGenerated <= 0) {
+                     throw new SQLException("Lỗi khi tạo bản ghi chi tiết điểm thưởng (không nhận được ID).");
                 }
 
-                if (!KhachHangQuery.congDiemTichLuy(hdx.getMaKH(), diemCongThem, conn)) { // Auto-unboxed
-                     throw new SQLException("Lỗi khi cập nhật tổng điểm cho khách hàng MaKH: " + hdx.getMaKH());
+                // CẬP NHẬT TỔNG ĐIỂM VÀO BẢNG KHACHHANG
+                if (!KhachHangQuery.congDiemTichLuy(hdx.getMaKH(), diemCongThem, conn)) {
+                     // Nếu congDiemTichLuy ném SQLException khi không tìm thấy KH, transaction sẽ rollback
+                     // Hoặc nếu nó trả về false, bạn cũng nên throw SQLException ở đây
+                     throw new SQLException("Lỗi khi cập nhật tổng điểm (sodiemtichluy) cho khách hàng MaKH: " + hdx.getMaKH());
                 }
-                System.out.println("HDX_QUERY (insertFullGetIdTx): Đã xử lý điểm thưởng (MaPhieu=" + maTichDiemGenerated +
-                                   ", + " + diemCongThem + " điểm) cho MaKH " + hdx.getMaKH());
+                System.out.println("HDX_QUERY (insertFullGetIdTx): Đã tạo phiếu điểm MaPhieu=" + maTichDiemGenerated +
+                                   " và cộng " + diemCongThem + " điểm vào sodiemtichluy của KH " + hdx.getMaKH());
             } else {
-                 System.out.println("HDX_QUERY (insertFullGetIdTx): Không đủ điều kiện giá trị hóa đơn để tích điểm cho MaKH " + hdx.getMaKH());
+                 System.out.println("HDX_QUERY (insertFullGetIdTx): Không đủ điều kiện giá trị hóa đơn để tích ("+ diemCongThem + " điểm) cho MaKH " + hdx.getMaKH());
             }
         } else {
             LogNoPointReason(suDungDiemDeGiamGia, hdx.getMaKH());
@@ -128,14 +131,12 @@ public class HoaDonXuatQuery {
             stmt.setInt(1, maHDX);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    // Đảm bảo constructor của ChiTietHDXuat khớp: (int maHDX, int maSP, int soLuong, double donGiaXuat)
-                    ChiTietHDXuat ct = new ChiTietHDXuat(
+                    list.add(new ChiTietHDXuat(
                         rs.getInt("mahdx"),
                         rs.getInt("masp"),
                         rs.getInt("soluong"),
                         rs.getDouble("dongiaxuat")
-                    );
-                    list.add(ct);
+                    ));
                 }
             }
         } catch (SQLException e) {
@@ -159,7 +160,7 @@ public class HoaDonXuatQuery {
                         rs.getDouble("thanhtien"),
                         rs.getDouble("mucthue"),
                         rs.getInt("manv"),
-                        rs.getInt("makh") // Ở đây MaKH không thể null
+                        rs.getInt("makh")
                     ));
                 }
             }
@@ -187,7 +188,7 @@ public class HoaDonXuatQuery {
                         rs.getDouble("thanhtien"),
                         rs.getDouble("mucthue"),
                         rs.getInt("manv"),
-                        rs.getObject("makh", Integer.class) // MaKH có thể null
+                        rs.getObject("makh", Integer.class)
                     ));
                 }
             }
@@ -211,7 +212,7 @@ public class HoaDonXuatQuery {
                     rs.getDouble("thanhtien"),
                     rs.getDouble("mucthue"),
                     rs.getInt("manv"),
-                    rs.getObject("makh", Integer.class) // MaKH có thể null
+                    rs.getObject("makh", Integer.class)
                 ));
             }
         } catch (SQLException e) {
@@ -234,7 +235,7 @@ public class HoaDonXuatQuery {
                         rs.getDouble("thanhtien"),
                         rs.getDouble("mucthue"),
                         rs.getInt("manv"),
-                        rs.getObject("makh", Integer.class) // MaKH có thể null
+                        rs.getObject("makh", Integer.class)
                     );
                 }
             }

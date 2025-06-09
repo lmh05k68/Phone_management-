@@ -1,10 +1,10 @@
 package controller.employee;
+import javax.swing.JOptionPane;
 import model.ChiTietHDXuat;
 import model.HoaDonXuat;
 import query.HoaDonXuatQuery;
 import query.KhachHangQuery;
 import query.SanPhamQuery;
-
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -17,7 +17,7 @@ public class SellProduct {
                            boolean suDungDiemDeGiamGia, int phanTramGiamTuDiem) {
 
         System.out.println("SELL_PRODUCT_CONTROLLER: Bắt đầu. MaNV=" + maNV + ", MaKH=" + maKHInteger);
-        LogSellDetails(maKHInteger, tenKH, sdtKH, suDungDiemDeGiamGia, phanTramGiamTuDiem); // Sửa Log
+        LogSellDetails(maKHInteger, tenKH, sdtKH, suDungDiemDeGiamGia, phanTramGiamTuDiem);
 
         if (dsChiTiet == null || dsChiTiet.isEmpty()) {
             System.err.println("SELL_PRODUCT_CONTROLLER: Danh sách chi tiết sản phẩm rỗng.");
@@ -33,38 +33,33 @@ public class SellProduct {
             // 1. Kiểm tra tồn kho
             System.out.println("SELL_PRODUCT_CONTROLLER: Kiểm tra tồn kho...");
             for (ChiTietHDXuat ct : dsChiTiet) {
-                // Giả sử getSoLuongTonKho ném SQLException nếu có lỗi DB
-                int tonKho = SanPhamQuery.getSoLuongTonKho(ct.getMaSP(), conn);
+                int tonKho = SanPhamQuery.getSoLuongTonKho(ct.getMaSP(), conn); // Sử dụng connection của transaction
                 if (tonKho < ct.getSoLuong()) {
                     System.err.println("SELL_PRODUCT_CONTROLLER: SP ID " + ct.getMaSP() +
                                        " không đủ tồn kho (cần " + ct.getSoLuong() + ", có " + tonKho + "). Rollback.");
                     conn.rollback();
-                    return null;
+                    JOptionPane.showMessageDialog(null, "Sản phẩm " + ct.getMaSP() + " không đủ số lượng tồn kho!", "Lỗi Tồn Kho", JOptionPane.ERROR_MESSAGE);
+                    return null; // Trả về null để View biết thất bại
                 }
             }
             System.out.println("SELL_PRODUCT_CONTROLLER: Tất cả sản phẩm đủ tồn kho.");
 
-            // 2. Tính toán tiền
+            // 2. Tính toán tiền (giữ nguyên logic này)
             double tongTienGoc = dsChiTiet.stream().mapToDouble(ct -> ct.getDonGiaXuat() * ct.getSoLuong()).sum();
             double tongTienTruocThue = tongTienGoc;
             if (suDungDiemDeGiamGia && phanTramGiamTuDiem > 0 && maKHInteger != null) {
                 double tiLeGiam = (double) phanTramGiamTuDiem / 100.0;
                 tongTienTruocThue = tongTienGoc * (1 - tiLeGiam);
-                 System.out.println("SELL_PRODUCT_CONTROLLER: Áp dụng giảm giá " + phanTramGiamTuDiem + "%. Tiền sau giảm: " + tongTienTruocThue);
             }
-            double thueValue = 0.1; // 10% VAT
+            double thueValue = 0.1;
             double mucThuePhanTram = thueValue * 100;
-            // ThanhTien trong DB là tiền cuối cùng khách trả (đã bao gồm VAT)
             double thanhTienCuoiCung = tongTienTruocThue * (1 + thueValue);
             LogSellCalculation(tongTienGoc, tongTienTruocThue, thanhTienCuoiCung, mucThuePhanTram);
 
-            // 3. Tạo đối tượng HoaDonXuat
-            // MaKHInteger đã được xác định hoặc là null từ View
             HoaDonXuat hdx = new HoaDonXuat(LocalDate.now(), thanhTienCuoiCung, mucThuePhanTram, maNV, maKHInteger);
             hdx.setChiTietList(dsChiTiet);
 
-            // 4. Insert Hóa Đơn Xuất, chi tiết, xử lý điểm (nếu có)
-            // Loại bỏ maTheTichDiemKhachCungCap khỏi lời gọi
+            // 3. Insert Hóa Đơn Xuất, chi tiết, xử lý điểm
             maHDXGenerated = HoaDonXuatQuery.insertHoaDonXuatFullAndGetId(hdx, tenKH, sdtKH, suDungDiemDeGiamGia, conn);
 
             if (maHDXGenerated == null || maHDXGenerated <= 0) {
@@ -72,23 +67,25 @@ public class SellProduct {
                 conn.rollback();
                 return null;
             }
-            System.out.println("SELL_PRODUCT_CONTROLLER: Hóa đơn MaHDX=" + maHDXGenerated + " và các mục liên quan đã được xử lý.");
+            System.out.println("SELL_PRODUCT_CONTROLLER: Hóa đơn MaHDX=" + maHDXGenerated + " đã được xử lý.");
 
-            // 5. Cập nhật số lượng tồn kho
+            // 4. Cập nhật (giảm) số lượng tồn kho <<<< SỬA GỌI HÀM
             System.out.println("SELL_PRODUCT_CONTROLLER: Cập nhật tồn kho...");
             for (ChiTietHDXuat ct : dsChiTiet) {
-                // Gọi hàm giảm số lượng, truyền số lượng bán (dương)
+                // Gọi hàm giamSoLuongKhiBan, truyền số lượng bán (dương)
                 if (!SanPhamQuery.giamSoLuongKhiBan(ct.getMaSP(), ct.getSoLuong(), conn)) {
-                     System.err.println("SELL_PRODUCT_CONTROLLER: Lỗi cập nhật tồn kho cho SP ID: " + ct.getMaSP() + ". Rollback.");
+                     System.err.println("SELL_PRODUCT_CONTROLLER: Lỗi cập nhật (giảm) tồn kho cho SP ID: " + ct.getMaSP() + ". Rollback.");
+                     // Lỗi này ở đây có thể do MaSP không tồn tại (dù đã kiểm tra ở trên) hoặc một lỗi DB khác.
+                     // Việc không đủ hàng đã được kiểm tra ở bước 1.
                     conn.rollback();
                     return null;
                 }
             }
             System.out.println("SELL_PRODUCT_CONTROLLER: Cập nhật tồn kho thành công.");
 
-            // 6. Reset điểm nếu đã sử dụng
+            // 5. Reset điểm nếu đã sử dụng
             if (suDungDiemDeGiamGia && maKHInteger != null && phanTramGiamTuDiem > 0) {
-                if (!KhachHangQuery.resetDiemTichLuy(maKHInteger, conn)) { // Truyền conn
+                if (!KhachHangQuery.resetDiemTichLuy(maKHInteger, conn)) {
                     System.err.println("SELL_PRODUCT_CONTROLLER: Lỗi khi reset điểm cho MaKH: " + maKHInteger + ". Rollback.");
                     conn.rollback();
                     return null;
@@ -106,13 +103,15 @@ public class SellProduct {
             if (conn != null) {
                 try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
             }
+            JOptionPane.showMessageDialog(null, "Lỗi cơ sở dữ liệu: " + e.getMessage(), "Lỗi Bán Hàng", JOptionPane.ERROR_MESSAGE);
             return null;
-        } catch (Exception e) { // Bắt các lỗi không mong muốn khác
+        } catch (Exception e) {
              System.err.println("SELL_PRODUCT_CONTROLLER: Lỗi không xác định: " + e.getMessage());
             e.printStackTrace();
             if (conn != null) {
                 try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
             }
+            JOptionPane.showMessageDialog(null, "Lỗi không xác định: " + e.getMessage(), "Lỗi Bán Hàng", JOptionPane.ERROR_MESSAGE);
             return null;
         }
         finally {

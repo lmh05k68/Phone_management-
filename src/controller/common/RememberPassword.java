@@ -4,17 +4,9 @@ import java.io.*;
 import java.nio.charset.StandardCharsets; // Quan trọng để đảm bảo encoding nhất quán
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Base64; // Để mã hóa/giải mã đơn giản (KHÔNG PHẢI MÃ HÓA BẢO MẬT)
-
+import java.util.Base64; 
 public class RememberPassword {
-    private static final String FILE_PATH = "remember_creds.txt"; // Đổi tên file cho rõ ràng hơn
-
-    /**
-     * Lưu tên đăng nhập và mật khẩu.
-     * Mật khẩu được mã hóa Base64 đơn giản (CHỈ ĐỂ CHE GIẤU, KHÔNG PHẢI BẢO MẬT).
-     * @param username Tên đăng nhập
-     * @param password Mật khẩu (plain text)
-     */
+    private static final String FILE_PATH = "remember_creds.txt"; 
     public static void saveCredentials(String username, String password) {
         try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(FILE_PATH), StandardCharsets.UTF_8)) {
             writer.write(username);
@@ -28,12 +20,6 @@ public class RememberPassword {
             e.printStackTrace();
         }
     }
-
-    /**
-     * Tải tên đăng nhập và mật khẩu đã lưu.
-     * Mật khẩu được giải mã Base64.
-     * @return một mảng String với [0] = username, [1] = password. Trả về null nếu không có gì được lưu hoặc lỗi.
-     */
     public static String[] loadCredentials() {
         try {
             if (Files.exists(Paths.get(FILE_PATH))) {

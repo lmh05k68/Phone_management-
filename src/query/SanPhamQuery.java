@@ -153,36 +153,20 @@ public class SanPhamQuery {
 
     public static int getSoLuongTonKho(int maSP, Connection conn) throws SQLException {
         String sql = "SELECT soluong FROM sanpham WHERE masp = ?";
-        boolean manageConnection = (conn == null);
-        Connection localConn = null;
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
-        int soLuong = -1;
-
-        try {
-            if (manageConnection) {
-                localConn = DBConnection.getConnection();
-                if (localConn == null) throw new SQLException("Không thể kết nối CSDL để lấy tồn kho.");
-            } else {
-                localConn = conn; // Sử dụng connection được truyền vào
-            }
-            stmt = localConn.prepareStatement(sql);
+        if (conn == null) {
+            throw new SQLException("Connection không được null để lấy số lượng tồn kho trong transaction.");
+        }
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, maSP);
-            rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                soLuong = rs.getInt("soluong");
-            } else {
-                System.err.println("SP_QUERY (getSoLuongTonKho): Không tìm thấy sản phẩm với mã: " + maSP);
-            }
-        } finally {
-            if (rs != null) try { rs.close(); } catch (SQLException e) { e.printStackTrace(); }
-            if (stmt != null) try { stmt.close(); } catch (SQLException e) { e.printStackTrace(); }
-            if (manageConnection && localConn != null && !localConn.isClosed()) { // Chỉ đóng nếu tự quản lý và chưa đóng
-                 try { localConn.close(); } catch (SQLException e) { e.printStackTrace(); }
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("soluong");
+                } else {
+                    System.err.println("SP_QUERY (getSoLuongTonKho): Không tìm thấy sản phẩm với mã: " + maSP + " hoặc không có thông tin tồn kho.");
+                    return -1; // Hoặc ném một exception tùy chỉnh
+                }
             }
         }
-        return soLuong;
     }
 
     public static boolean updateSoLuong(int maSP, int soLuongThayDoi, Connection conn) throws SQLException {
@@ -215,17 +199,45 @@ public class SanPhamQuery {
     }
 
     public static boolean tangSoLuong(int maSP, int soLuongTangThem, Connection conn) throws SQLException {
-        if (soLuongTangThem < 0) {
-            throw new IllegalArgumentException("Số lượng tăng thêm không thể âm.");
+        if (conn == null) {
+            throw new SQLException("Connection không được null cho thao tác tăng số lượng.");
         }
-        return updateSoLuong(maSP, soLuongTangThem, conn);
+        if (soLuongTangThem < 0) {
+            System.err.println("SP_QUERY (tangSoLuong): Số lượng tăng thêm không nên âm: " + soLuongTangThem);
+            return false; // Hoặc throw new IllegalArgumentException
+        }
+        String sql = "UPDATE sanpham SET soluong = soluong + ? WHERE masp = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, soLuongTangThem);
+            stmt.setInt(2, maSP);
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows == 0) {
+                System.err.println("SP_QUERY (tangSoLuong): Không tìm thấy MaSP " + maSP + " để tăng số lượng hoặc số lượng không đổi.");
+            }
+            return affectedRows > 0;
+        }
     }
 
     public static boolean giamSoLuongKhiBan(int maSP, int soLuongGiam, Connection conn) throws SQLException {
-        if (soLuongGiam < 0) {
-            throw new IllegalArgumentException("Số lượng giảm không thể âm.");
+        if (conn == null) {
+            throw new SQLException("Connection không được null cho thao tác giảm số lượng.");
         }
-        return updateSoLuong(maSP, -soLuongGiam, conn);
+        if (soLuongGiam <= 0) { // Số lượng bán phải dương
+            System.err.println("SP_QUERY (giamSoLuongKhiBan): Số lượng giảm phải lớn hơn 0: " + soLuongGiam);
+            return false; // Hoặc throw new IllegalArgumentException
+        }
+        String sql = "UPDATE sanpham SET soluong = soluong - ? WHERE masp = ? AND soluong >= ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, soLuongGiam);
+            stmt.setInt(2, maSP);
+            stmt.setInt(3, soLuongGiam); // Đảm bảo tồn kho ít nhất bằng số lượng giảm
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows == 0) {
+                System.err.println("SP_QUERY (giamSoLuongKhiBan): Cập nhật số lượng thất bại cho MaSP: " + maSP +
+                                   ". Nguyên nhân: SP không tồn tại, hoặc không đủ tồn kho.");
+            }
+            return affectedRows > 0;
+        }
     }
 
 

@@ -6,69 +6,86 @@ import controller.common.AuthManager;
 import controller.employee.ReturnRequestListController;
 public class EmployeeView extends JFrame {
     private static final long serialVersionUID = 1L;
-    private final int maNV; // Đổi kiểu dữ liệu sang int
+    private final int maNV;
     private JButton btnLogout;
+    private JButton btnCapNhatThongTinNV;
+    private JButton btnBanHang, btnXemYeuCauDoiTra, btnNhapHang;
+    private JButton btnQuanLyKhachHang, btnQuanLyBaoHanh;
+    private final Color FUNCTION_BUTTON_COLOR = new Color(0, 123, 255); 
+    private final Color DANGER_ACTION_COLOR = new Color(220, 53, 69); // Đỏ cho Đăng xuất
 
-    public EmployeeView(int maNV) { // Constructor nhận int
+    public EmployeeView(int maNV) {
         this.maNV = maNV;
-        System.out.println("EMPLOYEE_VIEW: Constructor EmployeeView cho MaNV: " + maNV);
-        setTitle("Giao diện Nhân viên");
-        // setSize(450, 480); // Sẽ dùng pack()
+        setTitle("Giao Diện Nhân Viên");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
 
         initUI();
-        pack(); // Tự động điều chỉnh kích thước
-        setMinimumSize(new Dimension(getWidth(), 450)); // Đảm bảo chiều cao tối thiểu
-        System.out.println("EMPLOYEE_VIEW: Constructor EmployeeView kết thúc.");
+        pack();
+        // Điều chỉnh kích thước tối thiểu dựa trên số lượng nút
+        setMinimumSize(new Dimension(getWidth() > 400 ? getWidth() : 400, 600)); // Tăng chiều cao nếu có nhiều nút
     }
 
     private void initUI() {
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(25, 35, 25, 35)); // Tăng padding
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(25, 40, 25, 40));
 
-        JLabel lblTitle = new JLabel("Chào mừng Nhân viên (Mã: " + maNV + ")"); // Hiển thị mã NV
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 22));
+        JLabel lblTitle = new JLabel("Chào mừng Nhân viên (Mã: " + maNV + ")");
+        lblTitle.setFont(new Font("Arial", Font.BOLD, 24));
         lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 30, 0)); // Tăng khoảng cách dưới
+        lblTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 25, 0));
         mainPanel.add(lblTitle);
 
         JPanel btnPanel = new JPanel();
-        // Sử dụng BoxLayout cho các nút để dễ căn chỉnh và thêm khoảng cách
         btnPanel.setLayout(new BoxLayout(btnPanel, BoxLayout.Y_AXIS));
         btnPanel.setOpaque(false);
 
-        // Màu cơ bản cho các nút chức năng của nhân viên
-        Color employeeButtonColor = new Color(23, 162, 184); // Một màu xanh teal
+        // Khởi tạo các nút với màu FUNCTION_BUTTON_COLOR
+        btnCapNhatThongTinNV = createStyledButton("Cập nhật thông tin cá nhân", FUNCTION_BUTTON_COLOR);
+        btnBanHang = createStyledButton("Bán hàng", FUNCTION_BUTTON_COLOR);
+        btnXemYeuCauDoiTra = createStyledButton("Xem Yêu cầu đổi/trả", FUNCTION_BUTTON_COLOR);
+        btnNhapHang = createStyledButton("Nhập hàng", FUNCTION_BUTTON_COLOR);
+        btnQuanLyKhachHang = createStyledButton("Quản lý khách hàng", FUNCTION_BUTTON_COLOR);
+        btnQuanLyBaoHanh = createStyledButton("Quản lý bảo hành", FUNCTION_BUTTON_COLOR);
 
-        JButton btnBanHang = createStyledButton("Bán hàng", employeeButtonColor);
-        JButton btnXemYeuCauDoiTra = createStyledButton("Xem Yêu cầu đổi/trả", employeeButtonColor);
-        JButton btnNhapHang = createStyledButton("Nhập hàng", employeeButtonColor);
-        JButton btnQuanLyKH = createStyledButton("Quản lý khách hàng", employeeButtonColor);
-        JButton btnQLBH = createStyledButton("Quản lý bảo hành", employeeButtonColor);
 
+        // Thêm các nút vào panel
+        btnPanel.add(btnCapNhatThongTinNV);
+        btnPanel.add(Box.createVerticalStrut(12));
         btnPanel.add(btnBanHang);
-        btnPanel.add(Box.createVerticalStrut(12)); // Khoảng cách giữa các nút
-        btnPanel.add(btnXemYeuCauDoiTra);
         btnPanel.add(Box.createVerticalStrut(12));
         btnPanel.add(btnNhapHang);
         btnPanel.add(Box.createVerticalStrut(12));
-        btnPanel.add(btnQuanLyKH);
+        btnPanel.add(btnXemYeuCauDoiTra);
         btnPanel.add(Box.createVerticalStrut(12));
-        btnPanel.add(btnQLBH);
+        btnPanel.add(btnQuanLyKhachHang); // Bạn cần quyết định nhân viên có quyền này không
+        btnPanel.add(Box.createVerticalStrut(12));
+        btnPanel.add(btnQuanLyBaoHanh);   // Bạn cần quyết định nhân viên có quyền này không
+
         mainPanel.add(btnPanel);
 
-        mainPanel.add(Box.createVerticalStrut(25)); 
-        btnLogout = createStyledButton("Đăng xuất", new Color(220, 53, 69)); 
+        mainPanel.add(Box.createVerticalGlue());
+
+        btnLogout = createStyledButton("Đăng xuất", DANGER_ACTION_COLOR); // Nút Đăng xuất vẫn màu đỏ
         btnLogout.setAlignmentX(Component.CENTER_ALIGNMENT);
+        mainPanel.add(Box.createVerticalStrut(25));
         mainPanel.add(btnLogout);
 
         setContentPane(mainPanel);
+
+        // Action Listeners
+        btnCapNhatThongTinNV.addActionListener(e -> {
+            new UpdateEmployeeProfileView(this.maNV).setVisible(true);
+        });
         btnBanHang.addActionListener(e -> {
             System.out.println("EMPLOYEE_VIEW: Nút 'Bán hàng' được nhấn.");
             new SellProductView(maNV).setVisible(true);
+        });
+        btnNhapHang.addActionListener(e -> {
+            System.out.println("EMPLOYEE_VIEW: Nút 'Nhập hàng' được nhấn.");
+            new ImportProductView(maNV).setVisible(true);
         });
         btnXemYeuCauDoiTra.addActionListener(e -> {
             System.out.println("EMPLOYEE_VIEW: Nút 'Xem Yêu cầu đổi/trả' được nhấn.");
@@ -76,9 +93,14 @@ public class EmployeeView extends JFrame {
             new ReturnRequestListController(listView);
             listView.setVisible(true);
         });
-        btnNhapHang.addActionListener(e -> new ImportProductView(maNV).setVisible(true));
-        btnQuanLyKH.addActionListener(e -> new ManageCustomerView().setVisible(true)); 
-        btnQLBH.addActionListener(e -> new WarrantyManagementView().setVisible(true));
+        btnQuanLyKhachHang.addActionListener(e -> {
+            System.out.println("EMPLOYEE_VIEW: Nút 'Quản lý khách hàng' được nhấn.");
+            new ManageCustomerView().setVisible(true);
+        });
+        btnQuanLyBaoHanh.addActionListener(e -> {
+            System.out.println("EMPLOYEE_VIEW: Nút 'Quản lý bảo hành' được nhấn.");
+            new WarrantyManagementView().setVisible(true);
+        });
 
         btnLogout.addActionListener(e -> {
             System.out.println("EMPLOYEE_VIEW: Nút 'Đăng xuất' được nhấn.");
@@ -95,10 +117,11 @@ public class EmployeeView extends JFrame {
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(backgroundColor.darker(), 1),
-            BorderFactory.createEmptyBorder(12, 25, 12, 25)
+            BorderFactory.createEmptyBorder(12, 30, 12, 30)
         ));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, btn.getPreferredSize().height + 5));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, btn.getPreferredSize().height + 10));
+        btn.setMinimumSize(new Dimension(300, btn.getPreferredSize().height)); // Tăng chiều rộng tối thiểu
         return btn;
     }
 }

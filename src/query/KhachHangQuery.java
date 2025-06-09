@@ -8,11 +8,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class KhachHangQuery {
+
+    /**
+     * Chèn một khách hàng mới và trả về ID tự sinh.
+     * Có thể sử dụng Connection được truyền vào (cho transaction) hoặc tự quản lý.
+     * @param kh Đối tượng KhachHang (không cần MaKH ban đầu).
+     * @param conn Connection hiện tại (có thể null).
+     * @return MaKH (Integer) của khách hàng mới, hoặc null nếu thất bại.
+     * @throws SQLException Nếu có lỗi SQL khi conn được truyền vào và có lỗi.
+     */
     public static Integer insertKhachHangAndGetId(KhachHang kh, Connection conn) throws SQLException {
         String sql = "INSERT INTO khachhang (hoten, sdtkh, sodiemtichluy) VALUES (?, ?, ?)";
-        System.out.println("KH_QUERY (insertAndGetId): Chuẩn bị insert KhachHang: HoTen=" + kh.getHoTen());
-        
-        boolean manageConnection = (conn == null); // Kiểm tra xem có cần quản lý connection không
+        System.out.println("KH_QUERY (insertAndGetId): Chuẩn bị insert KhachHang: HoTen=" + kh.getHoTen() + ", SdtKH=" + kh.getSdtKH() + ", Diem=" + kh.getSoDiemTichLuy());
+
+        boolean manageConnection = (conn == null);
         Connection localConn = null;
         PreparedStatement pstmt = null;
         ResultSet generatedKeys = null;
@@ -20,8 +29,12 @@ public class KhachHangQuery {
         try {
             if (manageConnection) {
                 localConn = DBConnection.getConnection();
+                if (localConn == null) {
+                    System.err.println("KH_QUERY (insertAndGetId): Không thể kết nối CSDL.");
+                    return null;
+                }
             } else {
-                localConn = conn; // Sử dụng connection được truyền vào
+                localConn = conn;
             }
 
             pstmt = localConn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
@@ -32,7 +45,6 @@ public class KhachHangQuery {
 
             if (affectedRows == 0) {
                 System.err.println("KH_QUERY (insertAndGetId): Chèn KhachHang thất bại, không có hàng nào được thêm.");
-                if (manageConnection && localConn != null) localConn.rollback(); // Nếu tự quản lý
                 return null;
             }
 
@@ -40,18 +52,19 @@ public class KhachHangQuery {
             if (generatedKeys.next()) {
                 int id = generatedKeys.getInt(1);
                 System.out.println("KH_QUERY (insertAndGetId): KhachHang được chèn thành công với ID: " + id);
-                if (manageConnection && localConn != null) localConn.commit(); // Nếu tự quản lý
                 return id;
             } else {
                 System.err.println("KH_QUERY (insertAndGetId): Chèn KhachHang thành công nhưng không lấy được ID.");
-                if (manageConnection && localConn != null) localConn.rollback(); // Nếu tự quản lý
                 return null;
             }
         } catch (SQLException e) {
-            if (manageConnection && localConn != null) {
-                try { localConn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
+            if (!manageConnection) {
+                throw e;
+            } else {
+                System.err.println("KH_QUERY (insertAndGetId - managed conn): Lỗi SQL: " + e.getMessage());
+                e.printStackTrace();
+                return null;
             }
-            throw e; // Ném lại lỗi để lớp gọi xử lý transaction
         } finally {
             if (generatedKeys != null) try { generatedKeys.close(); } catch (SQLException e) { /* ignored */ }
             if (pstmt != null) try { pstmt.close(); } catch (SQLException e) { /* ignored */ }
@@ -61,14 +74,14 @@ public class KhachHangQuery {
 
     public static boolean exists(int maKH) {
         String sql = "SELECT 1 FROM khachhang WHERE makh = ?";
-        try (Connection conn = DBConnection.getConnection(); // Tự quản lý connection cho việc đọc
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, maKH);
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();
             }
         } catch (SQLException e) {
-            System.err.println("KH_QUERY (exists): Lỗi SQL khi kiểm tra sự tồn tại của khách hàng MaKH " + maKH + ": " + e.getMessage());
+            System.err.println("KH_QUERY (exists): Lỗi SQL khi kiểm tra MaKH " + maKH + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -78,21 +91,20 @@ public class KhachHangQuery {
         List<KhachHang> list = new ArrayList<>();
         String sql = "SELECT kh.makh, kh.hoten, kh.sdtkh, kh.sodiemtichluy FROM khachhang kh " +
                      "JOIN taikhoan tk ON kh.makh = tk.madoituong " +
-                     "WHERE tk.vaitro = 'khachhang'";
-        try (Connection conn = DBConnection.getConnection(); // Tự quản lý
+                     "WHERE tk.vaitro = 'khachhang' ORDER BY kh.hoten ASC";
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
             while (rs.next()) {
-                KhachHang kh = new KhachHang(
+                list.add(new KhachHang(
                     rs.getInt("makh"),
                     rs.getString("hoten"),
                     rs.getString("sdtkh"),
                     rs.getInt("sodiemtichluy")
-                );
-                list.add(kh);
+                ));
             }
         } catch (SQLException e) {
-            System.err.println("KH_QUERY (getCustomersWithAccounts): Lỗi khi lấy danh sách khách hàng có tài khoản: " + e.getMessage());
+            System.err.println("KH_QUERY (getCustomersWithAccounts): Lỗi SQL: " + e.getMessage());
             e.printStackTrace();
         }
         return list;
@@ -103,25 +115,24 @@ public class KhachHangQuery {
         String sql = "SELECT kh.makh, kh.hoten, kh.sdtkh, kh.sodiemtichluy FROM khachhang kh " +
                      "JOIN taikhoan tk ON kh.makh = tk.madoituong " +
                      "WHERE tk.vaitro = 'khachhang' " +
-                     "AND (LOWER(kh.hoten) LIKE LOWER(?) OR kh.sdtkh LIKE ?)"; // Sử dụng LOWER để tìm kiếm không phân biệt hoa thường cho tên
-        try (Connection conn = DBConnection.getConnection(); // Tự quản lý
+                     "AND (LOWER(kh.hoten) ILIKE LOWER(?) OR kh.sdtkh LIKE ?) ORDER BY kh.hoten ASC";
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            String likeKeyword = "%" + keyword + "%";
+            String likeKeyword = "%" + keyword.trim() + "%";
             stmt.setString(1, likeKeyword);
             stmt.setString(2, likeKeyword);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    KhachHang kh = new KhachHang(
+                    list.add(new KhachHang(
                         rs.getInt("makh"),
                         rs.getString("hoten"),
                         rs.getString("sdtkh"),
                         rs.getInt("sodiemtichluy")
-                    );
-                    list.add(kh);
+                    ));
                 }
             }
         } catch (SQLException e) {
-            System.err.println("KH_QUERY (searchCustomersWithAccounts): Lỗi khi tìm kiếm khách hàng có tài khoản: " + e.getMessage());
+            System.err.println("KH_QUERY (searchCustomersWithAccounts): Lỗi SQL: " + e.getMessage());
             e.printStackTrace();
         }
         return list;
@@ -129,7 +140,7 @@ public class KhachHangQuery {
 
     public static KhachHang getKhachHangById(int maKH) {
         String sql = "SELECT makh, hoten, sdtkh, sodiemtichluy FROM khachhang WHERE makh = ?";
-        try (Connection conn = DBConnection.getConnection(); // Tự quản lý
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, maKH);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -143,19 +154,12 @@ public class KhachHangQuery {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("KH_QUERY (getKhachHangById): Lỗi SQL khi lấy khách hàng bằng ID MaKH " + maKH + ": " + e.getMessage());
+            System.err.println("KH_QUERY (getKhachHangById): Lỗi SQL cho MaKH " + maKH + ": " + e.getMessage());
             e.printStackTrace();
         }
         return null;
     }
 
-    /**
-     * Cập nhật thông tin khách hàng. Sử dụng Connection được truyền vào.
-     * @param kh Đối tượng KhachHang với thông tin đã cập nhật.
-     * @param conn Connection để thực hiện thao tác (phải được quản lý từ bên ngoài).
-     * @return true nếu thành công, false nếu thất bại.
-     * @throws SQLException Nếu có lỗi SQL.
-     */
     public static boolean capNhatThongTin(KhachHang kh, Connection conn) throws SQLException {
         String sql = "UPDATE khachhang SET hoten = ?, sdtkh = ?, sodiemtichluy = ? WHERE makh = ?";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -165,77 +169,76 @@ public class KhachHangQuery {
             stmt.setInt(4, kh.getMaKH());
             return stmt.executeUpdate() > 0;
         }
-        // SQLException sẽ được ném ra để lớp gọi xử lý transaction
     }
 
+    public static boolean capNhatThongTinCoBan(KhachHang kh) {
+        String sql = "UPDATE khachhang SET hoten = ?, sdtkh = ? WHERE makh = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, kh.getHoTen());
+            stmt.setString(2, kh.getSdtKH());
+            stmt.setInt(3, kh.getMaKH());
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows == 0) {
+                 System.err.println("KH_QUERY (capNhatThongTinCoBan): Không tìm thấy MaKH " + kh.getMaKH() + " để cập nhật hoặc thông tin không đổi.");
+            }
+            return affectedRows > 0;
+        } catch (SQLException e) {
+            System.err.println("KH_QUERY (capNhatThongTinCoBan): Lỗi SQL cho MaKH " + kh.getMaKH() + ": " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
 
-    /**
-     * Cộng điểm tích lũy cho khách hàng. Sử dụng Connection được truyền vào.
-     * @param maKH Mã khách hàng (int).
-     * @param soDiemCongThem Số điểm cần cộng.
-     * @param conn Connection để thực hiện thao tác.
-     * @return true nếu thành công.
-     * @throws SQLException Nếu có lỗi SQL.
-     */
     public static boolean congDiemTichLuy(int maKH, int soDiemCongThem, Connection conn) throws SQLException {
+        if (soDiemCongThem <= 0) {
+            System.out.println("KH_QUERY (congDiemTichLuy): Số điểm cộng thêm (" + soDiemCongThem + ") không dương. Không cộng điểm cho MaKH " + maKH);
+            return true;
+        }
         String sql = "UPDATE khachhang SET sodiemtichluy = COALESCE(sodiemtichluy, 0) + ? WHERE makh = ?";
-        System.out.println("KH_QUERY (congDiemTichLuy): Cộng thêm " + soDiemCongThem + " điểm cho MaKH " + maKH);
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, soDiemCongThem);
             stmt.setInt(2, maKH);
             int rowsAffected = stmt.executeUpdate();
             if (rowsAffected > 0) {
-                System.out.println("KH_QUERY (congDiemTichLuy): Cập nhật điểm thành công cho MaKH " + maKH);
+                System.out.println("KH_QUERY (congDiemTichLuy): Đã cộng " + soDiemCongThem + " điểm vào sodiemtichluy cho MaKH " + maKH + " thành công.");
                 return true;
             } else {
-                System.err.println("KH_QUERY (congDiemTichLuy): Không tìm thấy MaKH " + maKH + " để cập nhật điểm.");
-                return false; // Có thể coi đây là một thất bại trong ngữ cảnh giao dịch
+                System.err.println("KH_QUERY (congDiemTichLuy): Không tìm thấy MaKH " + maKH + " để cộng điểm vào bảng khachhang.");
+                throw new SQLException("Không thể cập nhật điểm cho khách hàng không tồn tại: MaKH=" + maKH);
             }
         }
-        // SQLException sẽ được ném ra để lớp gọi xử lý transaction
     }
 
-    /**
-     * Reset điểm tích lũy của khách hàng về 0. Sử dụng Connection được truyền vào.
-     * @param maKH Mã khách hàng (int).
-     * @param conn Connection để thực hiện thao tác.
-     * @return true nếu thành công.
-     * @throws SQLException Nếu có lỗi SQL.
-     */
     public static boolean resetDiemTichLuy(int maKH, Connection conn) throws SQLException {
         String sql = "UPDATE khachhang SET sodiemtichluy = 0 WHERE makh = ?";
-        System.out.println("KH_QUERY (resetDiemTichLuy): Reset điểm tích lũy về 0 cho MaKH " + maKH + " sử dụng connection được truyền vào.");
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, maKH);
             int rowsAffected = stmt.executeUpdate();
              if (rowsAffected > 0) {
-                System.out.println("KH_QUERY (resetDiemTichLuy): Reset điểm thành công cho MaKH " + maKH);
+                System.out.println("KH_QUERY (resetDiemTichLuy): Reset điểm cho MaKH " + maKH + " thành công.");
                 return true;
             } else {
-                // Trong một giao dịch, nếu không tìm thấy KH để reset điểm có thể là một vấn đề.
-                // Cân nhắc ném lỗi hoặc trả về false để giao dịch có thể rollback.
                 System.err.println("KH_QUERY (resetDiemTichLuy): Không tìm thấy MaKH " + maKH + " để reset điểm.");
-                return false;
+                throw new SQLException("Không thể reset điểm cho khách hàng không tồn tại: MaKH=" + maKH);
             }
         }
-        // SQLException sẽ được ném ra để lớp gọi xử lý transaction
     }
 
     public static int getSoDiemTichLuy(int maKH) {
         String sql = "SELECT sodiemtichluy FROM khachhang WHERE makh = ?";
-        try (Connection conn = DBConnection.getConnection(); // Tự quản lý
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, maKH);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
                     return rs.getInt("sodiemtichluy");
                 } else {
-                    System.out.println("KH_QUERY (getSoDiemTichLuy): Không tìm thấy MaKH " + maKH + " hoặc không có điểm.");
                     return 0;
                 }
             }
         } catch (SQLException e) {
-            System.err.println("KH_QUERY (getSoDiemTichLuy): Lỗi SQL khi lấy số điểm tích lũy cho MaKH " + maKH + ": " + e.getMessage());
+            System.err.println("KH_QUERY (getSoDiemTichLuy): Lỗi SQL khi lấy số điểm cho MaKH " + maKH + ": " + e.getMessage());
             e.printStackTrace();
             return -1;
         }
@@ -243,7 +246,30 @@ public class KhachHangQuery {
 
     public static int tinhPhanTramGiamTuDiem(int maKH) {
         int tongDiem = getSoDiemTichLuy(maKH);
-        if (tongDiem <= 0) return 0;
-        return Math.min(tongDiem / 100, 20); // Ví dụ: 100 điểm = 1%, tối đa 20%
+        if (tongDiem < 100) {
+            return 0;
+        }
+        return Math.min(tongDiem / 100, 20);
+    }
+
+    public static List<KhachHang> getAllKhachHang() {
+        List<KhachHang> list = new ArrayList<>();
+        String sql = "SELECT makh, hoten, sdtkh, sodiemtichluy FROM khachhang ORDER BY hoten ASC";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                list.add(new KhachHang(
+                    rs.getInt("makh"),
+                    rs.getString("hoten"),
+                    rs.getString("sdtkh"),
+                    rs.getInt("sodiemtichluy")
+                ));
+            }
+        } catch (SQLException e) {
+            System.err.println("KH_QUERY (getAllKhachHang): Lỗi SQL: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return list;
     }
 }

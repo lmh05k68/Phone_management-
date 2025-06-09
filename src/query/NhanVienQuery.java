@@ -221,4 +221,32 @@ public class NhanVienQuery {
             return false;
         }
     }
+ // Trong NhanVienQuery.java
+    public static NhanVien getNhanVienById(int maNV) {
+        String sql = "SELECT manv, tennv, ngaysinh, luong, sodienthoai FROM nhanvien WHERE manv = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, maNV);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    LocalDate ngaySinh = null;
+                    Date sqlDateNgaySinh = rs.getDate("ngaysinh");
+                    if (sqlDateNgaySinh != null) {
+                        ngaySinh = sqlDateNgaySinh.toLocalDate();
+                    }
+                    return new NhanVien(
+                        rs.getInt("manv"),
+                        rs.getString("tennv"),
+                        ngaySinh,
+                        rs.getDouble("luong"),
+                        rs.getString("sodienthoai")
+                    );
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("NV_QUERY (getNhanVienById): Lỗi SQL cho MaNV " + maNV + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
 }
