@@ -27,8 +27,6 @@ public class ReturnRequestListView extends JFrame {
         lblTitle.setHorizontalAlignment(SwingConstants.CENTER);
         lblTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
         mainPanel.add(lblTitle, BorderLayout.NORTH);
-
-        // Các cột này khớp với những gì controller đang thêm vào
         String[] columns = {"Mã YC (ID)", "Mã KH", "Mã SP", "Mã ĐH", "Ngày YC", "Lý Do", "Trạng Thái"};
         model = new DefaultTableModel(columns, 0) {
             private static final long serialVersionUID = 1L;
@@ -47,22 +45,16 @@ public class ReturnRequestListView extends JFrame {
         JScrollPane scrollPane = new JScrollPane(table);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
         System.out.println("VIEW: JScrollPane đã được thêm vào mainPanel.");
-
-        // Panel cho các nút hành động (Duyệt, Từ chối)
         JPanel actionButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5)); // Căn giữa
         actionButtonPanel.setOpaque(false); // Để màu nền của mainPanel hiển thị
         btnApprove = createStyledButton("Duyệt yêu cầu", new Color(40, 167, 69));
         btnReject = createStyledButton("Từ chối yêu cầu", new Color(220, 53, 69));
         actionButtonPanel.add(btnApprove);
         actionButtonPanel.add(btnReject);
-
-        // Panel cho nút Trở về
         btnBack = createStyledButton("Trở về", new Color(108, 117, 125));
         JPanel backButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10)); // Căn phải
         backButtonPanel.setOpaque(false);
         backButtonPanel.add(btnBack);
-
-        // Gom action buttons và back button
         JPanel bottomControlsPanel = new JPanel(new BorderLayout());
         bottomControlsPanel.setOpaque(false);
         bottomControlsPanel.add(actionButtonPanel, BorderLayout.CENTER);
@@ -121,62 +113,25 @@ public class ReturnRequestListView extends JFrame {
     public void addBackButtonListener(ActionListener listener) {
         btnBack.addActionListener(listener);
     }
-
-    /**
-     * Lấy ID (dưới dạng String) của yêu cầu đang được chọn trong bảng.
-     * Controller sẽ parse sang int nếu cần.
-     * @return ID của yêu cầu hoặc null nếu không có hàng nào được chọn.
-     */
     public String getSelectedRequestId() {
         int selectedRow = table.getSelectedRow();
         if (selectedRow >= 0) {
-            // Cột 0 là "Mã YC (ID)"
             Object idObj = model.getValueAt(table.convertRowIndexToModel(selectedRow), 0); // Luôn dùng convertRowIndexToModel
             return idObj != null ? idObj.toString() : null;
         }
         System.out.println("VIEW_getSelectedRequestId: Không có hàng nào được chọn.");
         return null;
     }
-
-    /**
-     * Lấy trạng thái hiện tại của yêu cầu đang được chọn trong bảng.
-     * @return Trạng thái (String) hoặc null nếu không có hàng nào được chọn hoặc trạng thái là null.
-     */
     public String getCurrentStatusOfSelectedRequest() {
         int selectedRow = table.getSelectedRow();
         if (selectedRow >= 0) {
-            // Cột 6 là "Trạng Thái"
             Object statusObj = model.getValueAt(table.convertRowIndexToModel(selectedRow), 6);
             return statusObj != null ? statusObj.toString() : null;
         }
         System.out.println("VIEW_getCurrentStatusOfSelectedRequest: Không có hàng nào được chọn.");
         return null;
     }
-
-    /**
-     * Cung cấp quyền truy cập vào DefaultTableModel để Controller có thể load dữ liệu.
-     * @return DefaultTableModel của bảng.
-     */
     public DefaultTableModel getModel() {
         return model;
     }
-
-     // Main method để test (tùy chọn)
-    // public static void main(String[] args) {
-    //     try {
-    //         for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-    //             if ("Nimbus".equals(info.getName())) {
-    //                 UIManager.setLookAndFeel(info.getClassName());
-    //                 break;
-    //             }
-    //         }
-    //     } catch (Exception e) {
-    //         // Nếu Nimbus không có sẵn, dùng Look and Feel mặc định của hệ thống
-    //     }
-    //     SwingUtilities.invokeLater(() -> {
-    //         ReturnRequestListView view = new ReturnRequestListView();
-    //         new ReturnRequestListController(view); // Khởi tạo controller và truyền view
-    //         view.setVisible(true);
-    //     });
-    // }
 }

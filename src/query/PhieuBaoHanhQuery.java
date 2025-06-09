@@ -8,7 +8,7 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement; // Cho RETURN_GENERATED_KEYS
+import java.sql.Statement;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -16,17 +16,12 @@ import java.util.List;
 
 public class PhieuBaoHanhQuery {
 
-    /**
-     * Chèn một phiếu bảo hành mới vào DB và trả về ID tự sinh.
-     * @param pbh Đối tượng PhieuBaoHanh (không cần idBH).
-     * @return idBH (Integer) tự sinh, hoặc null nếu thất bại.
-     */
     public static Integer insertPhieuBaoHanhAndGetId(PhieuBaoHanh pbh) {
-        // idbh là SERIAL, không cần truyền vào câu INSERT
-        String sql = "INSERT INTO PhieuBaoHanh (MaSP, NgayNhanSanPham, NgayTraSanPham, MaKH, TrangThai) " +
-                     "VALUES (?, ?, ?, ?, ?)";
+        // Câu lệnh SQL đã đúng, bao gồm MaHDX
+        String sql = "INSERT INTO PhieuBaoHanh (MaSP, NgayNhanSanPham, NgayTraSanPham, MaKH, TrangThai, MaHDX) " +
+                     "VALUES (?, ?, ?, ?, ?, ?)";
         ResultSet generatedKeys = null;
-        try (Connection conn = DBConnection.getConnection(); // Query tự quản lý connection
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             stmt.setInt(1, pbh.getMaSP());
@@ -38,6 +33,13 @@ public class PhieuBaoHanhQuery {
             }
             stmt.setInt(4, pbh.getMaKH());
             stmt.setString(5, pbh.getTrangThai());
+
+            // Lấy maHDX từ đối tượng pbh và set cho PreparedStatement
+            if (pbh.getMaHDX() != null) {
+                stmt.setInt(6, pbh.getMaHDX());
+            } else {
+                stmt.setNull(6, Types.INTEGER);
+            }
 
             int affectedRows = stmt.executeUpdate();
             if (affectedRows == 0) {
@@ -63,10 +65,10 @@ public class PhieuBaoHanhQuery {
         }
     }
 
-
     public static List<PhieuBaoHanh> getByMaKH(int maKH) {
         List<PhieuBaoHanh> list = new ArrayList<>();
-        String sql = "SELECT idbh, masp, ngaynhansanpham, ngaytrasanpham, makh, trangthai " +
+        // Câu lệnh SQL đã đúng, bao gồm mahdx
+        String sql = "SELECT idbh, masp, ngaynhansanpham, ngaytrasanpham, makh, trangthai, mahdx " +
                      "FROM PhieuBaoHanh WHERE makh = ? ORDER BY ngaynhansanpham DESC";
 
         try (Connection conn = DBConnection.getConnection();
@@ -79,13 +81,17 @@ public class PhieuBaoHanhQuery {
                     if (sqlDateTra != null) {
                         ngayTra = sqlDateTra.toLocalDate();
                     }
+                    Integer maHDX = rs.getObject("mahdx") == null ? null : rs.getInt("mahdx");
+
+                    // SỬA LỖI: Gọi constructor đúng của PhieuBaoHanh
                     PhieuBaoHanh pb = new PhieuBaoHanh(
                         rs.getInt("idbh"),
                         rs.getInt("masp"),
                         rs.getDate("ngaynhansanpham").toLocalDate(),
                         ngayTra,
                         rs.getInt("makh"),
-                        rs.getString("trangthai")
+                        rs.getString("trangthai"),
+                        maHDX // Truyền maHDX
                     );
                     list.add(pb);
                 }
@@ -99,7 +105,8 @@ public class PhieuBaoHanhQuery {
 
     public static List<PhieuBaoHanh> getAll() {
         List<PhieuBaoHanh> list = new ArrayList<>();
-        String sql = "SELECT idbh, masp, ngaynhansanpham, ngaytrasanpham, makh, trangthai " +
+        // Câu lệnh SQL đã đúng, bao gồm mahdx
+        String sql = "SELECT idbh, masp, ngaynhansanpham, ngaytrasanpham, makh, trangthai, mahdx " +
                      "FROM PhieuBaoHanh ORDER BY ngaynhansanpham DESC";
 
         try (Connection conn = DBConnection.getConnection();
@@ -111,13 +118,17 @@ public class PhieuBaoHanhQuery {
                  if (sqlDateTra != null) {
                      ngayTra = sqlDateTra.toLocalDate();
                  }
+                 Integer maHDX = rs.getObject("mahdx") == null ? null : rs.getInt("mahdx");
+
+                // SỬA LỖI: Gọi constructor đúng của PhieuBaoHanh
                 PhieuBaoHanh pb = new PhieuBaoHanh(
                     rs.getInt("idbh"),
                     rs.getInt("masp"),
                     rs.getDate("ngaynhansanpham").toLocalDate(),
                     ngayTra,
                     rs.getInt("makh"),
-                    rs.getString("trangthai")
+                    rs.getString("trangthai"),
+                    maHDX // Truyền maHDX
                 );
                 list.add(pb);
             }
@@ -148,7 +159,8 @@ public class PhieuBaoHanhQuery {
     }
 
     public static PhieuBaoHanh getByIdBH(int idBH) {
-        String sql = "SELECT idbh, masp, ngaynhansanpham, ngaytrasanpham, makh, trangthai " +
+        // Câu lệnh SQL đã đúng, bao gồm mahdx
+        String sql = "SELECT idbh, masp, ngaynhansanpham, ngaytrasanpham, makh, trangthai, mahdx " +
                      "FROM PhieuBaoHanh WHERE idbh = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -160,13 +172,15 @@ public class PhieuBaoHanhQuery {
                     if (sqlDateTra != null) {
                         ngayTra = sqlDateTra.toLocalDate();
                     }
+                    Integer maHDX = rs.getObject("mahdx") == null ? null : rs.getInt("mahdx");
                     return new PhieuBaoHanh(
                         rs.getInt("idbh"),
                         rs.getInt("masp"),
                         rs.getDate("ngaynhansanpham").toLocalDate(),
                         ngayTra,
                         rs.getInt("makh"),
-                        rs.getString("trangthai")
+                        rs.getString("trangthai"),
+                        maHDX 
                     );
                 }
             }

@@ -2,9 +2,9 @@ package view.admin;
 
 import model.HoaDonNhap;
 import model.HoaDonXuat;
-import query.HoaDonNhapQuery;
-import query.HoaDonXuatQuery;
-import query.ThongKeQuery;
+import query.HoaDonNhapQuery; // Các phương thức trong đây được gọi static
+import query.HoaDonXuatQuery; // Các phương thức trong đây được gọi static
+import query.ThongKeQuery;    // Các phương thức trong đây được gọi static
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -32,14 +32,14 @@ public class ThongKeView extends JFrame {
     private final DecimalFormat currencyFormat = new DecimalFormat("###,###,##0 VNĐ");
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    private final ThongKeQuery thongKeQuery = new ThongKeQuery();
-    private final HoaDonXuatQuery hoaDonXuatQuery = new HoaDonXuatQuery();
-    private final HoaDonNhapQuery hoaDonNhapQuery = new HoaDonNhapQuery();
+    // SỬA LỖI: Bỏ các instance của Query class nếu các phương thức đều là static
+    // private final ThongKeQuery thongKeQuery = new ThongKeQuery();
+    // private final HoaDonXuatQuery hoaDonXuatQuery = new HoaDonXuatQuery();
+    // private final HoaDonNhapQuery hoaDonNhapQuery = new HoaDonNhapQuery();
 
     public ThongKeView() {
-        // ... (constructor giữ nguyên)
-        System.out.println("THONGKE_VIEW: Constructor ThongKeView bắt đầu.");
-        setTitle("Thống kê Doanh thu - Chi tiêu - Lợi nhuận");
+        System.out.println("THONGKE_VIEW: Constructor ThongKeView bat dau.");
+        setTitle("Thong ke Doanh thu - Chi tieu - Loi nhuan");
         setSize(1200, 750);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
@@ -47,37 +47,41 @@ public class ThongKeView extends JFrame {
         if (cboThang.getSelectedItem() != null && cboNam.getSelectedItem() != null) {
             thongKe();
         }
-        System.out.println("THONGKE_VIEW: Constructor ThongKeView kết thúc.");
+        System.out.println("THONGKE_VIEW: Constructor ThongKeView ket thuc.");
     }
 
     private void initUI() {
-        // ... (phần topPanel giữ nguyên)
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+
         JPanel topPanel = new JPanel(new BorderLayout(0, 10));
-        JLabel lblViewTitle = new JLabel("Thống Kê Kinh Doanh Theo Tháng", SwingConstants.CENTER);
+        JLabel lblViewTitle = new JLabel("Thong Ke Kinh Doanh Theo Thang", SwingConstants.CENTER);
         lblViewTitle.setFont(new Font("Arial", Font.BOLD, 22));
         topPanel.add(lblViewTitle, BorderLayout.NORTH);
 
-        cboThang = new JComboBox<>();
-        cboNam = new JComboBox<>();
-        btnThongKe = createStyledButton("Xem Thống Kê");
-        btnTaiLaiDuLieu = createStyledButton("Tải Lại Dữ Liệu");
-        btnBack = createStyledButton("Trở về");
-
-        IntStream.rangeClosed(1, 12).forEach(cboThang::addItem);
-        int namHienTai = Year.now().getValue();
-        int thangHienTai = LocalDate.now().getMonthValue();
-        IntStream.rangeClosed(namHienTai - 5, namHienTai + 1).forEach(cboNam::addItem);
-        cboThang.setSelectedItem(thangHienTai);
-        cboNam.setSelectedItem(namHienTai);
-        Font inputFont = new Font("Segoe UI", Font.PLAIN, 14);
-        cboThang.setFont(inputFont);
-        cboNam.setFont(inputFont);
-        JLabel lblThang = new JLabel("Tháng:"); lblThang.setFont(inputFont);
-        JLabel lblNam = new JLabel("Năm:"); lblNam.setFont(inputFont);
-
         JPanel inputControlsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+        Font inputFont = new Font("Segoe UI", Font.PLAIN, 14);
+
+        JLabel lblThang = new JLabel("Thang:"); lblThang.setFont(inputFont);
+        cboThang = new JComboBox<>();
+        cboThang.setFont(inputFont);
+        IntStream.rangeClosed(1, 12).forEach(cboThang::addItem);
+
+        JLabel lblNam = new JLabel("Nam:"); lblNam.setFont(inputFont);
+        cboNam = new JComboBox<>();
+        cboNam.setFont(inputFont);
+        int namHienTai = Year.now().getValue();
+        IntStream.rangeClosed(namHienTai - 5, namHienTai + 1).forEach(cboNam::addItem);
+
+        cboThang.setSelectedItem(LocalDate.now().getMonthValue());
+        cboNam.setSelectedItem(namHienTai);
+
+        btnThongKe = createStyledButton("Xem Thong Ke");
+        btnTaiLaiDuLieu = createStyledButton("Tai Lai Du Lieu");
+        btnTaiLaiDuLieu.setBackground(new Color(23, 162, 184));
+        btnBack = createStyledButton("Tro ve");
+        btnBack.setBackground(new Color(108, 117, 125));
+
         inputControlsPanel.add(lblThang);
         inputControlsPanel.add(cboThang);
         inputControlsPanel.add(lblNam);
@@ -88,44 +92,43 @@ public class ThongKeView extends JFrame {
         topPanel.add(inputControlsPanel, BorderLayout.CENTER);
         mainPanel.add(topPanel, BorderLayout.NORTH);
 
-        String[] columnsHDX = {"Mã HDX", "Ngày Lập", "Thành Tiền (Trước thuế)", "Thuế (%)", "Tổng Cộng (Sau thuế)", "Mã KH"};
-        modelHDX = new DefaultTableModel(columnsHDX, 0) { 
-        	private static final long serialVersionUID = 1L;
+        String[] columnsHDX = {"Ma HDX", "Ngay Lap", "Thanh Tien (Truoc thue)", "Thue (%)", "Tong Cong (Sau thue)", "Ma KH"};
+        modelHDX = new DefaultTableModel(columnsHDX, 0) {
+            private static final long serialVersionUID = 1L;
+            @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         tableHDX = new JTable(modelHDX);
         styleTable(tableHDX, "hdx");
         JScrollPane scrollPaneHDX = new JScrollPane(tableHDX);
-        scrollPaneHDX.setBorder(BorderFactory.createTitledBorder("DOANH THU (Hóa Đơn Xuất)"));
+        scrollPaneHDX.setBorder(BorderFactory.createTitledBorder("DOANH THU (Hoa Don Xuat)"));
 
-        // SỬA CỘT CHO BẢNG HÓA ĐƠN NHẬP
-        String[] columnsHDN = {"Mã HDN", "Ngày Nhập", "Mã NCC", "Mã NV"}; // Bỏ cột "Tổng Tiền Nhập"
+        String[] columnsHDN = {"Ma HDN", "Ngay Nhap", "Ma NCC", "Ma NV"};
         modelHDN = new DefaultTableModel(columnsHDN, 0) {
             private static final long serialVersionUID = 1L;
             @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         tableHDN = new JTable(modelHDN);
-        styleTable(tableHDN, "hdn_basic"); // Dùng một key khác để style cột
+        styleTable(tableHDN, "hdn_basic");
         JScrollPane scrollPaneHDN = new JScrollPane(tableHDN);
-        scrollPaneHDN.setBorder(BorderFactory.createTitledBorder("CHI TIÊU (Danh sách Hóa Đơn Nhập)"));
+        scrollPaneHDN.setBorder(BorderFactory.createTitledBorder("CHI TIEU (Danh sach Hoa Don Nhap)"));
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scrollPaneHDX, scrollPaneHDN);
-        splitPane.setResizeWeight(0.5);
+        splitPane.setResizeWeight(0.55);
         splitPane.setOneTouchExpandable(true);
         mainPanel.add(splitPane, BorderLayout.CENTER);
 
         JPanel resultPanel = new JPanel(new GridLayout(3, 1, 0, 8));
-        // ... (phần resultPanel giữ nguyên)
         resultPanel.setBorder(BorderFactory.createEmptyBorder(15, 0, 10, 0));
         Font resultFont = new Font("Arial", Font.BOLD, 18);
-        lblTongDoanhThu = new JLabel("Tổng Doanh Thu (Sau thuế): ...", SwingConstants.CENTER);
+        lblTongDoanhThu = new JLabel("Tong Doanh Thu (Sau thue): ...", SwingConstants.CENTER);
         lblTongDoanhThu.setFont(resultFont);
         lblTongDoanhThu.setForeground(new Color(0, 100, 0));
-        lblTongChiTieu = new JLabel("Tổng Chi Tiêu (HĐ Nhập): ...", SwingConstants.CENTER);
+        lblTongChiTieu = new JLabel("Tong Chi Tieu (HD Nhap): ...", SwingConstants.CENTER);
         lblTongChiTieu.setFont(resultFont);
-        lblTongChiTieu.setForeground(Color.RED);
-        lblLoiNhuan = new JLabel("Lợi Nhuận (Tháng .../...): ...", SwingConstants.CENTER);
+        lblTongChiTieu.setForeground(Color.RED.darker());
+        lblLoiNhuan = new JLabel("Loi Nhuan (Thang .../...): ...", SwingConstants.CENTER);
         lblLoiNhuan.setFont(resultFont);
-        lblLoiNhuan.setForeground(Color.BLUE);
+        lblLoiNhuan.setForeground(Color.BLUE.darker());
         resultPanel.add(lblTongDoanhThu);
         resultPanel.add(lblTongChiTieu);
         resultPanel.add(lblLoiNhuan);
@@ -133,23 +136,21 @@ public class ThongKeView extends JFrame {
 
         setContentPane(mainPanel);
 
-        // ... (Action Listeners giữ nguyên)
         btnThongKe.addActionListener(e -> {
-            System.out.println("THONGKE_VIEW: Nút 'Xem Thống Kê' được nhấn.");
+            System.out.println("THONGKE_VIEW: Nut 'Xem Thong Ke' duoc nhan.");
             thongKe();
         });
         btnTaiLaiDuLieu.addActionListener(e -> {
-            System.out.println("THONGKE_VIEW: Nút 'Tải Lại Dữ Liệu' được nhấn.");
+            System.out.println("THONGKE_VIEW: Nut 'Tai Lai Du Lieu' duoc nhan.");
             taiLaiTatCaDuLieu();
         });
         btnBack.addActionListener(e -> {
-            System.out.println("THONGKE_VIEW: Nút 'Trở về' được nhấn.");
+            System.out.println("THONGKE_VIEW: Nut 'Tro ve' duoc nhan.");
             dispose();
         });
     }
 
     private void styleTable(JTable table, String tableType) {
-        // ... (phần style cho hdx giữ nguyên)
         table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
         table.setRowHeight(28);
@@ -162,19 +163,18 @@ public class ThongKeView extends JFrame {
             columnModel.getColumn(0).setPreferredWidth(80);
             columnModel.getColumn(1).setPreferredWidth(100);
             columnModel.getColumn(2).setPreferredWidth(180);
-            columnModel.getColumn(3).setPreferredWidth(80); // Sửa lại cho thuế
+            columnModel.getColumn(3).setPreferredWidth(80);
             columnModel.getColumn(4).setPreferredWidth(180);
             columnModel.getColumn(5).setPreferredWidth(80);
-        } else if ("hdn_basic".equals(tableType) && columnModel.getColumnCount() == 4) { // SỬA KEY VÀ SỐ CỘT
-            columnModel.getColumn(0).setPreferredWidth(100);  // Mã HDN
-            columnModel.getColumn(1).setPreferredWidth(120); // Ngày Nhập
-            columnModel.getColumn(2).setPreferredWidth(100); // Mã NCC
-            columnModel.getColumn(3).setPreferredWidth(100);  // Mã NV
+        } else if ("hdn_basic".equals(tableType) && columnModel.getColumnCount() == 4) {
+            columnModel.getColumn(0).setPreferredWidth(100);
+            columnModel.getColumn(1).setPreferredWidth(120);
+            columnModel.getColumn(2).setPreferredWidth(100);
+            columnModel.getColumn(3).setPreferredWidth(100);
         }
     }
 
     private JButton createStyledButton(String text) {
-        // ... (Giữ nguyên)
         JButton btn = new JButton(text);
         btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btn.setFocusPainted(false);
@@ -189,96 +189,95 @@ public class ThongKeView extends JFrame {
     }
 
     private void thongKe() {
-        // ... (phần lấy doanh thu, chi tiêu, tính lợi nhuận giữ nguyên)
         if (cboThang.getSelectedItem() == null || cboNam.getSelectedItem() == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn tháng và năm.", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Vui long chon thang va nam.", "Thieu thong tin", JOptionPane.WARNING_MESSAGE);
             return;
         }
         int thang = (int) cboThang.getSelectedItem();
         int nam = (int) cboNam.getSelectedItem();
-        System.out.println("THONGKE_VIEW_thongKe: Thống kê cho Tháng: " + thang + ", Năm: " + nam);
+        System.out.println("THONGKE_VIEW (thongKe): Thong ke cho Thang: " + thang + ", Nam: " + nam);
 
-        double doanhThu = thongKeQuery.getDoanhThuThang(thang, nam);
-        lblTongDoanhThu.setText("Tổng Doanh Thu (Sau thuế): " + currencyFormat.format(doanhThu));
-        System.out.println("THONGKE_VIEW_thongKe: Doanh thu = " + doanhThu);
+        // SỬA LỖI: Gọi phương thức static trực tiếp từ tên lớp Query
+        double doanhThu = ThongKeQuery.getDoanhThuThang(thang, nam);
+        lblTongDoanhThu.setText("Tong Doanh Thu (Sau thue): " + currencyFormat.format(doanhThu));
+        System.out.println("THONGKE_VIEW (thongKe): Doanh thu = " + doanhThu);
 
-        double chiTieu = thongKeQuery.getChiTieuThang(thang, nam);
-        lblTongChiTieu.setText("Tổng Chi Tiêu (HĐ Nhập): " + currencyFormat.format(chiTieu));
-        System.out.println("THONGKE_VIEW_thongKe: Chi tiêu = " + chiTieu);
+        double chiTieu = ThongKeQuery.getChiTieuThang(thang, nam);
+        lblTongChiTieu.setText("Tong Chi Tieu (HD Nhap): " + currencyFormat.format(chiTieu));
+        System.out.println("THONGKE_VIEW (thongKe): Chi tieu = " + chiTieu);
 
         double loiNhuan = doanhThu - chiTieu;
-        lblLoiNhuan.setText("Lợi Nhuận (Tháng " + thang + "/" + nam + "): " + currencyFormat.format(loiNhuan));
+        lblLoiNhuan.setText("Loi Nhuan (Thang " + thang + "/" + nam + "): " + currencyFormat.format(loiNhuan));
         if (loiNhuan >= 0) {
             lblLoiNhuan.setForeground(new Color(0, 128, 0));
         } else {
-            lblLoiNhuan.setForeground(Color.RED);
+            lblLoiNhuan.setForeground(Color.RED.darker());
         }
-        System.out.println("THONGKE_VIEW_thongKe: Lợi nhuận = " + loiNhuan);
+        System.out.println("THONGKE_VIEW (thongKe): Loi nhuan = " + loiNhuan);
 
         loadHoaDonXuatTable(thang, nam);
         loadHoaDonNhapTable(thang, nam);
     }
 
     private void loadHoaDonXuatTable(int thang, int nam) {
-        System.out.println("THONGKE_VIEW_loadHoaDonXuatTable: Tải HĐX cho Tháng: " + thang + ", Năm: " + nam);
+        System.out.println("THONGKE_VIEW (loadHoaDonXuatTable): Tai HĐX cho Thang: " + thang + ", Nam: " + nam);
         modelHDX.setRowCount(0);
-        List<HoaDonXuat> list = hoaDonXuatQuery.getHoaDonByMonthAndYear(thang, nam);
+        // SỬA LỖI: Gọi phương thức static trực tiếp từ tên lớp Query
+        List<HoaDonXuat> list = HoaDonXuatQuery.getHoaDonByMonthAndYear(thang, nam);
 
         if (list != null && !list.isEmpty()) {
             for (HoaDonXuat hdx : list) {
                 double thanhTienTruocThue = hdx.getThanhTien();
                 double mucThuePhanTram = hdx.getMucThue();
-                double tongCongSauThue = thanhTienTruocThue * (1 + mucThuePhanTram / 100.0);
+                double tongCongSauThue = thanhTienTruocThue * (1 + (mucThuePhanTram / 100.0));
+
                 modelHDX.addRow(new Object[]{
                         hdx.getMaHDX(),
                         (hdx.getNgayLap() != null) ? hdx.getNgayLap().format(dateFormatter) : "N/A",
                         currencyFormat.format(thanhTienTruocThue),
-                        String.format("%.2f", mucThuePhanTram),
+                        String.format("%.2f%%", mucThuePhanTram),
                         currencyFormat.format(tongCongSauThue),
-                        hdx.getMaKH() != null ? hdx.getMaKH() : "Khách lẻ"
+                        hdx.getMaKH() != null ? hdx.getMaKH() : "Khach le"
                 });
             }
-            System.out.println("THONGKE_VIEW_loadHoaDonXuatTable: Đã tải " + list.size() + " hóa đơn xuất.");
+            System.out.println("THONGKE_VIEW (loadHoaDonXuatTable): Da tai " + list.size() + " hoa don xuat.");
         } else {
-            System.out.println("THONGKE_VIEW_loadHoaDonXuatTable: Không có hóa đơn xuất nào trong tháng/năm đã chọn.");
+            System.out.println("THONGKE_VIEW (loadHoaDonXuatTable): Khong co hoa don xuat nao trong thang/nam da chon.");
         }
     }
+
     private void loadHoaDonNhapTable(int thang, int nam) {
-        System.out.println("THONGKE_VIEW_loadHoaDonNhapTable: Tai HDN cho Thang: " + thang + ", Nam: " + nam);
+        System.out.println("THONGKE_VIEW (loadHoaDonNhapTable): Tai HDN cho Thang: " + thang + ", Nam: " + nam);
         modelHDN.setRowCount(0);
-        List<HoaDonNhap> list = hoaDonNhapQuery.getHoaDonNhapByMonthAndYear(thang, nam);
+        // SỬA LỖI: Gọi phương thức static trực tiếp từ tên lớp Query
+        List<HoaDonNhap> list = HoaDonNhapQuery.getHoaDonNhapByMonthAndYear(thang, nam);
 
         if (list != null && !list.isEmpty()) {
             for (HoaDonNhap hdn : list) {
                 modelHDN.addRow(new Object[]{
                         hdn.getMaHDN(),
-                        (hdn.getNgayNhap() != null) ? hdn.getNgayNhap().format(dateFormatter) : "N/A",
+                        (hdn.getNgayNhap() != null) ? hdn.getNgayNhap().format(dateFormatter) : "N/A", // Giả sử model có getNgayNhap()
                         hdn.getMaNCC(),
                         hdn.getMaNV()
                 });
             }
-            System.out.println("THONGKE_VIEW_loadHoaDonNhapTable: Da tai " + list.size() + " hoa don nhap (thong tin co ban).");
+            System.out.println("THONGKE_VIEW (loadHoaDonNhapTable): Da tai " + list.size() + " hoa don nhap.");
         } else {
-            System.out.println("THONGKE_VIEW_loadHoaDonNhapTable: Khong co hoa don nhap nao.");
+            System.out.println("THONGKE_VIEW (loadHoaDonNhapTable): Khong co hoa don nhap nao trong thang/nam da chon.");
         }
     }
 
     private void taiLaiTatCaDuLieu() {
         if (cboThang.getSelectedItem() == null || cboNam.getSelectedItem() == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn tháng và năm trước khi tải lại.", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Vui long chon thang va nam truoc khi tai lai.", "Thieu thong tin", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        int thang = (int) cboThang.getSelectedItem();
-        int nam = (int) cboNam.getSelectedItem();
-        loadHoaDonXuatTable(thang, nam);
-        loadHoaDonNhapTable(thang, nam);
-        lblTongDoanhThu.setText("Tổng Doanh Thu (Sau thuế): ...");
-        lblTongChiTieu.setText("Tổng Chi Tiêu (HĐ Nhập): ...");
-        lblLoiNhuan.setText("Lợi Nhuận (Tháng " + thang + "/" + nam + "): ...");
-        lblLoiNhuan.setForeground(Color.BLUE);
+        thongKe();
+
         if (modelHDX.getRowCount() == 0 && modelHDN.getRowCount() == 0) {
-             JOptionPane.showMessageDialog(this, "Không có hóa đơn xuất hoặc nhập nào trong tháng " + thang + "/" + nam + " để hiển thị.",
-                    "Không có dữ liệu", JOptionPane.INFORMATION_MESSAGE);
+             JOptionPane.showMessageDialog(this, "Khong co hoa don xuat hoac nhap nao trong thang " +
+                            cboThang.getSelectedItem() + "/" + cboNam.getSelectedItem() + " de hien thi.",
+                    "Khong co du lieu", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 }

@@ -1,14 +1,16 @@
 package view.employee;
 
 import model.PhieuBaoHanh;
-import query.PhieuBaoHanhQuery; 
+import query.PhieuBaoHanhQuery; // Đảm bảo model.PhieuBaoHanh có getMaHDX()
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
 import java.awt.*;
 import java.util.List;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException; 
+import java.time.format.DateTimeFormatter; // Thêm nếu chưa có, cho gợi ý ngày
+import java.time.format.DateTimeParseException;
+
 public class WarrantyManagementView extends JFrame {
     private static final long serialVersionUID = 1L;
     private JTable table;
@@ -16,15 +18,16 @@ public class WarrantyManagementView extends JFrame {
     private JComboBox<String> cboTrangThaiUpdate;
     private JTextField txtMaKHFilter;
     private JButton btnCapNhat, btnLoc, btnClearFilter, btnTroVe;
-    private Integer currentMaKHFilter = null; 
+    private Integer currentMaKHFilter = null;
+
     public WarrantyManagementView() {
-        System.out.println("WARRANTY_MANAGEMENT_VIEW: Khởi tạo.");
-        setTitle("Quản Lý Phiếu Bảo Hành");
-        setSize(1000, 650);
+        System.out.println("WARRANTY_MANAGEMENT_VIEW: Khoi tao.");
+        setTitle("Quan Ly Phieu Bao Hanh");
+        setSize(1150, 650); // Tăng chiều rộng để chứa thêm cột
         setLocationRelativeTo(null);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         initUI();
-        loadData(null); // Tải tất cả dữ liệu ban đầu
+        loadData(null); // Tai tat ca du lieu ban dau
     }
 
     private void initUI() {
@@ -32,25 +35,25 @@ public class WarrantyManagementView extends JFrame {
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
 
-        JLabel lblTitle = new JLabel("Quản Lý Phiếu Bảo Hành");
+        JLabel lblTitle = new JLabel("Quan Ly Phieu Bao Hanh");
         lblTitle.setFont(new Font("Arial", Font.BOLD, 24));
         lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
         lblTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
         mainPanel.add(lblTitle);
 
         JPanel pnFilters = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        pnFilters.setBorder(BorderFactory.createTitledBorder("Bộ lọc danh sách phiếu"));
+        pnFilters.setBorder(BorderFactory.createTitledBorder("Bo loc danh sach phieu"));
         pnFilters.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
 
-        pnFilters.add(new JLabel("Mã Khách Hàng (lọc):"));
+        pnFilters.add(new JLabel("Ma Khach Hang (loc):"));
         txtMaKHFilter = new JTextField(10);
         pnFilters.add(txtMaKHFilter);
 
-        btnLoc = createStyledButton("Lọc theo Mã KH");
+        btnLoc = createStyledButton("Loc theo Ma KH");
         btnLoc.addActionListener(e -> filterByMaKH());
         pnFilters.add(btnLoc);
 
-        btnClearFilter = createStyledButton("Hiện tất cả");
+        btnClearFilter = createStyledButton("Hien tat ca");
         btnClearFilter.setBackground(new Color(108, 117, 125));
         btnClearFilter.addActionListener(e -> {
             txtMaKHFilter.setText("");
@@ -61,39 +64,45 @@ public class WarrantyManagementView extends JFrame {
         mainPanel.add(pnFilters);
         mainPanel.add(Box.createVerticalStrut(15));
 
-        String[] columns = {"Mã Phiếu (ID)", "Mã KH", "Mã SP", "Ngày Nhận", "Ngày Trả", "Trạng Thái"};
+        // 1. CẬP NHẬT MẢNG COLUMNS
+        String[] columns = {"Ma Phieu (ID)", "Ma KH", "Ma SP", "Ma HDX", "Ngay Nhan", "Ngay Tra", "Trang Thai"};
         model = new DefaultTableModel(columns, 0) {
         	private static final long serialVersionUID = 1L;
             @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         table = new JTable(model);
-        styleTable(table);
+        styleTable(table); // Gọi styleTable sau khi đã có model và table
 
         JScrollPane scrollPane = new JScrollPane(table);
         mainPanel.add(scrollPane);
         mainPanel.add(Box.createVerticalStrut(15));
 
         JPanel pnActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        pnActions.setBorder(BorderFactory.createTitledBorder("Cập nhật trạng thái phiếu đã chọn"));
+        pnActions.setBorder(BorderFactory.createTitledBorder("Cap nhat trang thai phieu da chon"));
         pnActions.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
 
-        pnActions.add(new JLabel("Trạng thái mới:"));
-        cboTrangThaiUpdate = new JComboBox<>(new String[]{"Đang xử lý", "Đã sửa xong", "Không thể sửa", "Đã trả khách"});
+        pnActions.add(new JLabel("Trang thai moi:"));
+        cboTrangThaiUpdate = new JComboBox<>(new String[]{"Dang xu ly", "Da sua xong", "Khong the sua", "Da tra khach"});
         cboTrangThaiUpdate.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         pnActions.add(cboTrangThaiUpdate);
 
-        btnCapNhat = createStyledButton("Cập Nhật Phiếu"); // Đổi tên nút
+        btnCapNhat = createStyledButton("Cap Nhat Phieu");
         btnCapNhat.setBackground(new Color(40, 167, 69));
-        btnCapNhat.addActionListener(e -> capNhatTrangThaiVaNgayTra()); // Gọi hàm mới
+        btnCapNhat.addActionListener(e -> capNhatTrangThaiVaNgayTra());
         pnActions.add(btnCapNhat);
         mainPanel.add(pnActions);
         mainPanel.add(Box.createVerticalStrut(10));
 
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         bottomPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
-        btnTroVe = createStyledButton("Trở về");
+        btnTroVe = createStyledButton("Tro ve");
         btnTroVe.setBackground(new Color(220, 53, 69));
-        btnTroVe.addActionListener(e -> dispose());
+        btnTroVe.addActionListener(e -> dispose()); // Đóng frame hiện tại
+        // Ví dụ: nếu muốn quay lại EmployeeMenuView
+        // btnTroVe.addActionListener(e -> {
+        //     dispose();
+        //     new EmployeeMenuView().setVisible(true); // Thay EmployeeMenuView bằng tên view chính của bạn
+        // });
         bottomPanel.add(btnTroVe);
         mainPanel.add(bottomPanel);
 
@@ -109,12 +118,14 @@ public class WarrantyManagementView extends JFrame {
         tbl.getTableHeader().setReorderingAllowed(false);
 
         TableColumnModel columnModel = tbl.getColumnModel();
-        columnModel.getColumn(0).setPreferredWidth(100); // Mã Phiếu (ID)
-        columnModel.getColumn(1).setPreferredWidth(80);  // Mã KH
-        columnModel.getColumn(2).setPreferredWidth(80);  // Mã SP
-        columnModel.getColumn(3).setPreferredWidth(120); // Ngày Nhận
-        columnModel.getColumn(4).setPreferredWidth(120); // Ngày Trả
-        columnModel.getColumn(5).setPreferredWidth(180); // Trạng Thái (rộng hơn chút)
+        // 2. CẬP NHẬT ĐỘ RỘNG CỘT
+        columnModel.getColumn(0).setPreferredWidth(100); // Ma Phieu (ID)
+        columnModel.getColumn(1).setPreferredWidth(80);  // Ma KH
+        columnModel.getColumn(2).setPreferredWidth(80);  // Ma SP
+        columnModel.getColumn(3).setPreferredWidth(80);  // Ma HDX (CỘT MỚI)
+        columnModel.getColumn(4).setPreferredWidth(120); // Ngay Nhan (trước là cột 3)
+        columnModel.getColumn(5).setPreferredWidth(120); // Ngay Tra (trước là cột 4)
+        columnModel.getColumn(6).setPreferredWidth(180); // Trang Thai (trước là cột 5)
     }
 
     private JButton createStyledButton(String text) {
@@ -136,29 +147,32 @@ public class WarrantyManagementView extends JFrame {
         List<PhieuBaoHanh> list;
 
         try {
-            // Gọi các phương thức static từ PhieuBaoHanhQuery
             if (maKHFilter == null) {
                 list = PhieuBaoHanhQuery.getAll();
             } else {
-                list = PhieuBaoHanhQuery.getByMaKH(maKHFilter); // Truyền int
+                list = PhieuBaoHanhQuery.getByMaKH(maKHFilter);
             }
 
             if (list != null && !list.isEmpty()) {
                 for (PhieuBaoHanh p : list) {
+                    // 3. THÊM p.getMaHDX() VÀO addRow
+                    // Nếu MaHDX là null, hiển thị chuỗi rỗng hoặc "N/A"
+                    Object maHDXDisplay = p.getMaHDX() == null ? "" : p.getMaHDX();
                     model.addRow(new Object[]{
-                            p.getIdBH(),        // int
-                            p.getMaKH(),        // int
-                            p.getMaSP(),        // int
-                            p.getNgayNhanSanPham(), // LocalDate
-                            p.getNgayTraSanPham(),   // LocalDate (có thể null)
-                            p.getTrangThai()    // String
+                            p.getIdBH(),
+                            p.getMaKH(),
+                            p.getMaSP(),
+                            maHDXDisplay, // Thêm MaHDX
+                            p.getNgayNhanSanPham(),
+                            p.getNgayTraSanPham(),
+                            p.getTrangThai()
                     });
                 }
             } else if (maKHFilter != null) {
-                JOptionPane.showMessageDialog(this, "Không tìm thấy phiếu bảo hành nào cho Mã KH: " + maKHFilter, "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Khong tim thay phieu bao hanh nao cho Ma KH: " + maKHFilter, "Thong bao", JOptionPane.INFORMATION_MESSAGE);
             }
-        } catch (Exception e) { // Bắt lỗi rộng hơn trong trường hợp Query ném lỗi không mong muốn
-            JOptionPane.showMessageDialog(this, "Lỗi khi tải dữ liệu phiếu bảo hành: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Loi khi tai du lieu phieu bao hanh: " + e.getMessage(), "Loi", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
         }
     }
@@ -166,88 +180,89 @@ public class WarrantyManagementView extends JFrame {
     private void filterByMaKH() {
         String text = txtMaKHFilter.getText().trim();
         if (text.isEmpty()) {
-            currentMaKHFilter = null; // Reset bộ lọc
+            currentMaKHFilter = null;
             loadData(null);
             return;
         }
         try {
-            int maKH = Integer.parseInt(text); // Chuyển sang int
-            // Tùy chọn: Kiểm tra xem MaKH có tồn tại trong bảng KhachHang không
-            // if (!KhachHangQuery.exists(maKH)) { // Giả sử KhachHangQuery.exists(int)
-            //     JOptionPane.showMessageDialog(this, "Mã Khách Hàng " + maKH + " không tồn tại.", "Lỗi Mã KH", JOptionPane.ERROR_MESSAGE);
+            int maKH = Integer.parseInt(text);
+            // Optional: Check if MaKH exists
+            // if (!KhachHangQuery.exists(maKH)) { // Assuming KhachHangQuery.exists(int)
+            //     JOptionPane.showMessageDialog(this, "Ma Khach Hang " + maKH + " khong ton tai.", "Loi Ma KH", JOptionPane.ERROR_MESSAGE);
             //     currentMaKHFilter = null;
-            //     loadData(null); // Hiển thị lại tất cả
+            //     loadData(null);
             //     return;
             // }
             currentMaKHFilter = maKH;
             loadData(currentMaKHFilter);
         } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "Mã Khách Hàng phải là một số nguyên.", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Ma Khach Hang phai la mot so nguyen.", "Loi dinh dang", JOptionPane.ERROR_MESSAGE);
             txtMaKHFilter.requestFocus();
-            // Có thể giữ nguyên currentMaKHFilter hoặc reset tùy theo logic mong muốn
         }
     }
 
-    private void capNhatTrangThaiVaNgayTra() { // Đổi tên phương thức cho rõ ràng
+    private void capNhatTrangThaiVaNgayTra() {
         int selectedRow = table.getSelectedRow();
         if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một phiếu bảo hành để cập nhật.", "Chưa chọn phiếu", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Vui long chon mot phieu bao hanh de cap nhat.", "Chua chon phieu", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        int idBH = (Integer) model.getValueAt(selectedRow, 0); // idBH là int
+        // Chỉ số các cột đã thay đổi do thêm cột MaHDX
+        // Cột 0: idBH
+        // Cột 1: MaKH
+        // Cột 2: MaSP
+        // Cột 3: MaHDX
+        // Cột 4: NgayNhan (trước là cột 3)
+        // Cột 5: NgayTra (trước là cột 4)
+        // Cột 6: TrangThai (trước là cột 5)
+
+        int idBH = (Integer) model.getValueAt(selectedRow, 0);
         String trangThaiMoi = (String) cboTrangThaiUpdate.getSelectedItem();
 
-        // Lấy ngày trả hiện tại từ model (có thể là null)
-        Object ngayTraHienTaiObj = model.getValueAt(selectedRow, 4);
+        Object ngayTraHienTaiObj = model.getValueAt(selectedRow, 5); // Lấy từ cột 5 (NgayTra)
         LocalDate ngayTraHienTai = null;
         if (ngayTraHienTaiObj instanceof LocalDate) {
             ngayTraHienTai = (LocalDate) ngayTraHienTaiObj;
         }
 
-        LocalDate ngayTraDeCapNhat = ngayTraHienTai; // Mặc định giữ ngày trả cũ
+        LocalDate ngayTraDeCapNhat = ngayTraHienTai;
 
-        // Xử lý logic cho ngày trả dựa trên trạng thái mới
-        if ("Đã trả khách".equals(trangThaiMoi)) {
-            if (ngayTraHienTai == null) { // Nếu chưa có ngày trả, yêu cầu nhập
+        if ("Da tra khach".equals(trangThaiMoi)) {
+            if (ngayTraHienTai == null) {
                 String inputNgayTraStr = JOptionPane.showInputDialog(this,
-                        "Nhập ngày trả sản phẩm (YYYY-MM-DD):",
-                        LocalDate.now().toString()); // Gợi ý ngày hiện tại
+                        "Nhap ngay tra san pham (YYYY-MM-DD):",
+                        LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)); // Gợi ý ngày hiện tại
 
-                if (inputNgayTraStr == null) { // Người dùng nhấn Cancel
-                    return; // Không làm gì cả
+                if (inputNgayTraStr == null) {
+                    return;
                 }
                 if (inputNgayTraStr.trim().isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Ngày trả không được để trống khi trạng thái là 'Đã trả khách'.", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Ngay tra khong duoc de trong khi trang thai la 'Da tra khach'.", "Thieu thong tin", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
                 try {
-                    ngayTraDeCapNhat = LocalDate.parse(inputNgayTraStr.trim());
+                    ngayTraDeCapNhat = LocalDate.parse(inputNgayTraStr.trim(), DateTimeFormatter.ISO_LOCAL_DATE);
                 } catch (DateTimeParseException e) {
-                    JOptionPane.showMessageDialog(this, "Định dạng ngày trả không hợp lệ. Vui lòng sử dụng YYYY-MM-DD.", "Lỗi định dạng ngày", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Dinh dang ngay tra khong hop le. Vui long su dung YYYY-MM-DD.", "Loi dinh dang ngay", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
             }
-            // Nếu đã có ngày trả, người dùng có thể không cần nhập lại, hoặc bạn có thể thêm lựa chọn cho phép sửa ngày trả.
-        } else if (!"Đã sửa xong".equals(trangThaiMoi)) {
-            // Nếu trạng thái không phải "Đã trả khách" và cũng không phải "Đã sửa xong"
-            // (ví dụ: "Đang xử lý", "Không thể sửa"), thì nên xóa ngày trả (nếu có)
+        } else if (!"Da sua xong".equals(trangThaiMoi)) {
             ngayTraDeCapNhat = null;
         }
-        // Nếu trạng thái là "Đã sửa xong", ngày trả có thể được giữ nguyên hoặc để trống chờ đến khi "Đã trả khách"
 
-        String message = String.format("Cập nhật phiếu %d:\nTrạng thái mới: '%s'\nNgày trả mới: %s\n\nBạn có chắc chắn không?",
-                                       idBH, trangThaiMoi, (ngayTraDeCapNhat != null ? ngayTraDeCapNhat.toString() : "Chưa có"));
-        int confirm = JOptionPane.showConfirmDialog(this, message, "Xác nhận cập nhật", JOptionPane.YES_NO_OPTION);
+        String message = String.format("Cap nhat phieu %d:\nTrang thai moi: '%s'\nNgay tra moi: %s\n\nBan co chac chan khong?",
+                                       idBH, trangThaiMoi, (ngayTraDeCapNhat != null ? ngayTraDeCapNhat.format(DateTimeFormatter.ISO_LOCAL_DATE) : "Chua co"));
+        int confirm = JOptionPane.showConfirmDialog(this, message, "Xac nhan cap nhat", JOptionPane.YES_NO_OPTION);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            // Gọi phương thức query đã sửa
             boolean success = PhieuBaoHanhQuery.updateTrangThaiAndNgayTra(idBH, trangThaiMoi, ngayTraDeCapNhat);
             if (success) {
-                JOptionPane.showMessageDialog(this, "Cập nhật phiếu bảo hành thành công.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-                loadData(currentMaKHFilter); // Tải lại dữ liệu
+                JOptionPane.showMessageDialog(this, "Cap nhat phieu bao hanh thanh cong.", "Thanh cong", JOptionPane.INFORMATION_MESSAGE);
+                loadData(currentMaKHFilter);
             } else {
-                JOptionPane.showMessageDialog(this, "Cập nhật phiếu bảo hành thất bại. Vui lòng thử lại.", "Lỗi cập nhật", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Cap nhat phieu bao hanh that bai. Vui long thu lai.", "Loi cap nhat", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
@@ -261,7 +276,7 @@ public class WarrantyManagementView extends JFrame {
                  }
              }
          } catch (Exception e) {
-             System.err.println("Không thể áp dụng Nimbus Look and Feel: " + e.getMessage());
+             System.err.println("Khong the ap dung Nimbus Look and Feel: " + e.getMessage());
          }
          SwingUtilities.invokeLater(() -> new WarrantyManagementView().setVisible(true));
      }

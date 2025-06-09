@@ -1,12 +1,13 @@
 package controller.customer;
 
 import model.PhieuBaoHanh;
-import query.PhieuBaoHanhQuery; 
+import query.PhieuBaoHanhQuery;
 import java.time.LocalDate;
-public class WarrantyRequest { 
-    public boolean createWarrantyRequest(int maSP, LocalDate ngayNhan, LocalDate ngayTraDuKien, int maKH) {
+
+public class WarrantyRequest {
+    public boolean createWarrantyRequest(int maSP, Integer maHDX, LocalDate ngayNhan, LocalDate ngayTraDuKien, int maKH) {
         System.out.println("WARRANTY_REQUEST_CONTROLLER: Tạo yêu cầu BH. MaKH=" + maKH + ", MaSP=" + maSP +
-                           ", NgayNhan=" + ngayNhan + ", NgayTraDuKien=" + ngayTraDuKien);
+                           ", MaHDX=" + maHDX + ", NgayNhan=" + ngayNhan + ", NgayTraDuKien=" + ngayTraDuKien);
 
         if (maSP <= 0 || ngayNhan == null) {
             System.err.println("WARRANTY_REQUEST_CONTROLLER: Thông tin đầu vào không hợp lệ (MaSP hoặc Ngày nhận).");
@@ -17,9 +18,9 @@ public class WarrantyRequest {
             return false;
         }
 
+        String trangThaiBanDau = "Chờ tiếp nhận";
+        PhieuBaoHanh pbh = new PhieuBaoHanh(maSP, ngayNhan, ngayTraDuKien, maKH, trangThaiBanDau, maHDX);
 
-        String trangThaiBanDau = "Chờ tiếp nhận"; 
-        PhieuBaoHanh pbh = new PhieuBaoHanh(maSP, ngayNhan, ngayTraDuKien, maKH, trangThaiBanDau);
         Integer idBHGenerated = PhieuBaoHanhQuery.insertPhieuBaoHanhAndGetId(pbh);
 
         if (idBHGenerated != null && idBHGenerated > 0) {
