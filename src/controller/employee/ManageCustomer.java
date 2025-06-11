@@ -1,15 +1,15 @@
 package controller.employee;
-
-import view.employee.ManageCustomerView;
-
+import model.KhachHang;
+import query.KhachHangQuery;
+import java.util.List;
 public class ManageCustomer {
-    private String maNV;
-
-    public ManageCustomer(String maNV) {
-        this.maNV = maNV;
+	public List<KhachHang> getAllCustomersWithAccounts() {
+        return KhachHangQuery.getCustomersWithAccounts();
     }
-
-    public void showManageCustomerView() {
-        new ManageCustomerView().setVisible(true);
+    public List<KhachHang> searchCustomers(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return getAllCustomersWithAccounts();
+        }
+        return KhachHangQuery.searchCustomersWithAccounts(keyword.trim());
     }
 }

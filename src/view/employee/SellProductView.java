@@ -1,482 +1,468 @@
 package view.employee;
 
 import controller.employee.SellProduct;
-import model.ChiTietHDXuat;
+import model.ChiTietDonHang;
 import model.KhachHang;
-import model.SanPham;
 import query.KhachHangQuery;
-import query.SanPhamQuery;
+import query.SPCuTheQuery;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
+import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 
 public class SellProductView extends JFrame {
     private static final long serialVersionUID = 1L;
-    private int maNV;
-    private JTextField tfMaKH, tfTenKH, tfSdtKH; 
-    private JSpinner spinnerSoLuong;
-    private JTable tableSanPham, tableHoaDon;
-    private DefaultTableModel modelSanPham, modelHoaDon;
-    private JLabel lblTongTien, lblGiamGia;
-    private JButton btnSuDungDiem, btnBack;
 
+    // --- CÁC HẰNG SỐ ĐỊNH DẠNG GIAO DIỆN ---
+    private static final Color COLOR_PRIMARY = new Color(0, 123, 255);
+    private static final Color COLOR_SUCCESS = new Color(40, 167, 69);
+    private static final Color COLOR_DANGER = new Color(220, 53, 69);
+    private static final Color COLOR_WARNING = new Color(255, 193, 7);
+    private static final Color COLOR_TEXT_ON_DARK = Color.WHITE;
+    private static final Color COLOR_TEXT_ON_LIGHT = Color.BLACK;
+
+    private static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD, 14);
+    private static final Font FONT_BUTTON = new Font("Segoe UI", Font.BOLD, 14);
+    private static final Font FONT_TOTAL = new Font("Segoe UI", Font.BOLD, 22);
+    private static final Font FONT_DISCOUNT = new Font("Segoe UI", Font.ITALIC, 14);
+
+    private static final BigDecimal VAT_RATE = new BigDecimal("0.08"); // 8% VAT
+
+    // --- THÀNH VIÊN LỚP ---
+    private final int maNV;
+    private final NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(Locale.of("vi", "VN"));
     private final SellProduct sellProductController = new SellProduct();
-    // Các lớp Query nên được gọi thông qua phương thức static, không cần tạo instance ở đây
-    // private final SanPhamQuery spQuery = new SanPhamQuery();
-    // private final KhachHangQuery khachHangQuery = new KhachHangQuery();
 
-    private boolean suDungDiemDangApDung = false;
-    private int phanTramGiamHienTai = 0;
+    // --- CÁC THÀNH PHẦN GIAO DIỆN ---
+    private JTextField tfMaKH, tfTenKH, tfSdtKH;
+    private JTable tableSanPham, tableGioHang;
+    private DefaultTableModel modelSanPham, modelGioHang;
+    private JLabel lblTongTien, lblGiamGia, lblDiscountInfo;
+    private JButton btnToggleSuDungDiem, btnThanhToan;
+
+    // --- TRẠNG THÁI ---
+    private KhachHang khachHangHienTai = null;
+    private boolean suDungDiemIsActive = false;
 
     public SellProductView(int maNV) {
         this.maNV = maNV;
-        System.out.println("SELL_VIEW: Khởi tạo SellProductView cho NV (Mã: " + maNV + ")");
-        setTitle("Bán hàng - Nhân viên (Mã: " + maNV + ")");
-        setSize(1100, 750); // Điều chỉnh kích thước nếu cần
+        setTitle("Bán hàng - Nhân viên #" + maNV);
+        setSize(1200, 800);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         initUI();
-        // tfMaHDX.setText("HDX" + System.currentTimeMillis() % 100000); // Loại bỏ vì MaHDX tự sinh
+        loadAvailableProducts();
     }
 
     private void initUI() {
-        setLayout(new BorderLayout(10, 10));
-        JPanel content = new JPanel(new BorderLayout(10, 10));
-        content.setBorder(new EmptyBorder(15, 20, 15, 20));
+        Container contentPane = getContentPane();
+        contentPane.setLayout(new BorderLayout(10, 10));
+        contentPane.setBackground(Color.WHITE); // Set background for the frame
 
-        // Top Panel: KH, Tích điểm
-        JPanel topInfoPanelContainer = new JPanel(new GridLayout(1, 2, 15, 0));
+        contentPane.add(createTopPanel(), BorderLayout.NORTH);
+        contentPane.add(createCenterPanel(), BorderLayout.CENTER);
+        contentPane.add(createBottomPanel(), BorderLayout.SOUTH);
+        addActionListeners();
+    }
 
-        // Panel trái: Thông tin KH
-        JPanel panelKH = new JPanel(new GridLayout(0, 2, 5, 5));
-        tfMaKH = new JTextField(10);
-        tfTenKH = new JTextField(15);
-        tfSdtKH = new JTextField(10);
-        panelKH.setBorder(BorderFactory.createTitledBorder("Thông tin khách hàng (nếu có)"));
-        panelKH.add(new JLabel("Mã KH:")); panelKH.add(tfMaKH);
-        panelKH.add(new JLabel("Tên KH:")); panelKH.add(tfTenKH);
-        panelKH.add(new JLabel("SĐT KH:")); panelKH.add(tfSdtKH);
-        topInfoPanelContainer.add(panelKH); // Panel KH giờ chiếm phần bên trái
+    private JPanel createTopPanel() {
+        JPanel topPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        topPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        topPanel.setOpaque(false);
+        topPanel.add(createCustomerInfoPanel());
+        topPanel.add(createDiscountPanel());
+        return topPanel;
+    }
 
-        // Panel phải: Sử dụng điểm
-        JPanel rightTopPanel = new JPanel();
-        rightTopPanel.setLayout(new BoxLayout(rightTopPanel, BoxLayout.Y_AXIS));
-        rightTopPanel.setBorder(BorderFactory.createTitledBorder("Điểm thưởng (nếu có Mã KH)"));
+    private JPanel createCustomerInfoPanel() {
+        JPanel panelKH = new JPanel(new GridBagLayout());
+        panelKH.setBorder(BorderFactory.createTitledBorder(null, "Thông Tin Khách Hàng", TitledBorder.LEADING, TitledBorder.TOP, FONT_TITLE, COLOR_PRIMARY));
+        panelKH.setOpaque(false);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Loại bỏ tfMaTichDiem
-        // JPanel panelTichDiemInput = new JPanel(new FlowLayout(FlowLayout.LEFT, 10,5));
-        // tfMaTichDiem = new JTextField(10);
-        // tfMaTichDiem.setEnabled(false);
-        // panelTichDiemInput.add(new JLabel("Mã tích điểm*:")); // Không cần nữa
-        // panelTichDiemInput.add(tfMaTichDiem);
-        // rightTopPanel.add(panelTichDiemInput);
-        // rightTopPanel.add(Box.createVerticalStrut(5));
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0; panelKH.add(new JLabel("Mã KH:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1; tfMaKH = new JTextField(15); panelKH.add(tfMaKH, gbc);
+        gbc.gridx = 2; gbc.gridy = 0; gbc.weightx = 0; JButton btnTimKH = new JButton("Tìm"); styleButton(btnTimKH, COLOR_PRIMARY); panelKH.add(btnTimKH, gbc);
 
-        btnSuDungDiem = createStyledButton("Sử dụng điểm thưởng");
-        btnSuDungDiem.setEnabled(false);
-        lblGiamGia = new JLabel("Giảm giá: 0%");
-        lblGiamGia.setFont(new Font("Segoe UI", Font.ITALIC, 14));
-        JPanel panelSuDungDiemControls = new JPanel(new FlowLayout(FlowLayout.LEFT,10,5));
-        panelSuDungDiemControls.add(btnSuDungDiem);
-        panelSuDungDiemControls.add(lblGiamGia);
-        rightTopPanel.add(panelSuDungDiemControls);
-        topInfoPanelContainer.add(rightTopPanel);
+        gbc.gridx = 0; gbc.gridy = 1; panelKH.add(new JLabel("Tên KH:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 1; gbc.gridwidth = 2; tfTenKH = new JTextField(); tfTenKH.setEditable(false); tfTenKH.setFont(new Font("Segoe UI", Font.BOLD, 12)); panelKH.add(tfTenKH, gbc);
 
+        gbc.gridx = 0; gbc.gridy = 2; panelKH.add(new JLabel("SĐT KH:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 2; tfSdtKH = new JTextField(); tfSdtKH.setEditable(false); panelKH.add(tfSdtKH, gbc);
 
-        // Tables
-        String[] colsSP = {"Mã SP", "Tên SP", "Màu", "Đơn giá", "Nước SX", "Hãng SX", "Tồn kho"};
-        modelSanPham = new DefaultTableModel(colsSP, 0) {
-        	private static final long serialVersionUID = 1L;
-            @Override public boolean isCellEditable(int row, int column) { return false; }
+        btnTimKH.addActionListener(e -> timKhachHang());
+        tfMaKH.addActionListener(e -> timKhachHang());
+        return panelKH;
+    }
+
+    private JPanel createDiscountPanel() {
+        JPanel panelDiem = new JPanel(new BorderLayout(0, 10));
+        panelDiem.setBorder(BorderFactory.createTitledBorder(null, "Ưu Đãi Điểm Thưởng", TitledBorder.LEADING, TitledBorder.TOP, FONT_TITLE, COLOR_SUCCESS));
+        panelDiem.setOpaque(false);
+
+        lblGiamGia = new JLabel("Nhập Mã KH để xem ưu đãi.", SwingConstants.CENTER);
+        lblGiamGia.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+
+        btnToggleSuDungDiem = new JButton();
+        updateDiscountButtonState(); // Set initial state
+
+        JPanel buttonContainer = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 5));
+        buttonContainer.setOpaque(false);
+        buttonContainer.add(btnToggleSuDungDiem);
+
+        panelDiem.add(lblGiamGia, BorderLayout.CENTER);
+        panelDiem.add(buttonContainer, BorderLayout.SOUTH);
+        return panelDiem;
+    }
+
+    private JSplitPane createCenterPanel() {
+        String[] cols = {"Mã SP Cụ Thể (IMEI)", "Tên Sản Phẩm", "Màu Sắc", "Giá Bán"};
+        modelSanPham = new DefaultTableModel(cols, 0) {
+            private static final long serialVersionUID = 1L;
+            @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         tableSanPham = new JTable(modelSanPham);
-        styleTable(tableSanPham);
-        JScrollPane scrollSP = new JScrollPane(tableSanPham);
-        scrollSP.setBorder(BorderFactory.createTitledBorder("Danh sách sản phẩm"));
-        scrollSP.setPreferredSize(new Dimension(scrollSP.getPreferredSize().width, 250));
 
-
-        String[] colsHD = {"Mã SP", "Tên SP", "Số lượng", "Đơn giá", "Thành tiền"};
-        modelHoaDon = new DefaultTableModel(colsHD, 0) {
-        	private static final long serialVersionUID = 1L;
-            @Override public boolean isCellEditable(int row, int column) { return false; }
+        modelGioHang = new DefaultTableModel(cols, 0) {
+            private static final long serialVersionUID = 1L;
+            @Override public boolean isCellEditable(int r, int c) { return false; }
         };
-        tableHoaDon = new JTable(modelHoaDon);
-        styleTable(tableHoaDon);
-        JScrollPane scrollHD = new JScrollPane(tableHoaDon);
-        scrollHD.setBorder(BorderFactory.createTitledBorder("Chi tiết hóa đơn"));
+        tableGioHang = new JTable(modelGioHang);
 
-        JPanel panelControl = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
-        spinnerSoLuong = new JSpinner(new SpinnerNumberModel(1, 1, 999, 1));
-        ((JSpinner.DefaultEditor) spinnerSoLuong.getEditor()).getTextField().setColumns(4);
-
-        JButton btnThem = createStyledButton("Thêm vào HĐ");
-        JButton btnXoa = createStyledButton("Xóa khỏi HĐ");
-        JButton btnBan = createStyledButton("Tạo Hóa Đơn");
-        btnBan.setBackground(new Color(40, 167, 69));
-
-        panelControl.add(new JLabel("Số lượng:"));
-        panelControl.add(spinnerSoLuong);
-        panelControl.add(btnThem);
-        panelControl.add(btnXoa);
-        panelControl.add(btnBan);
-
-        lblTongTien = new JLabel("Tổng tiền: 0 VNĐ", SwingConstants.RIGHT);
-        lblTongTien.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        lblTongTien.setBorder(new EmptyBorder(5,0,5,10));
-
-        btnBack = createStyledButton("Trở về");
-        btnBack.setBackground(new Color(108, 117, 125));
-        JPanel bottomPanelContainer = new JPanel(new BorderLayout());
-        bottomPanelContainer.add(lblTongTien, BorderLayout.CENTER);
-        JPanel backButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        backButtonPanel.add(btnBack);
-        bottomPanelContainer.add(backButtonPanel, BorderLayout.EAST);
-        bottomPanelContainer.setBorder(new EmptyBorder(10, 10, 5, 10));
-
-        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scrollSP, scrollHD);
-        split.setDividerLocation(300);
-        split.setResizeWeight(0.45);
-
-        content.add(topInfoPanelContainer, BorderLayout.NORTH);
-        content.add(split, BorderLayout.CENTER);
-        content.add(panelControl, BorderLayout.SOUTH);
-
-        add(content, BorderLayout.CENTER);
-        add(bottomPanelContainer, BorderLayout.SOUTH);
-
-        btnThem.addActionListener(e -> themVaoHoaDon());
-        btnXoa.addActionListener(e -> xoaKhoiHoaDon());
-        btnBan.addActionListener(e -> banHang());
-        btnBack.addActionListener(e -> {
-            System.out.println("SELL_VIEW: Nút 'Trở về' được nhấn.");
-            this.dispose();
-        });
-        btnSuDungDiem.addActionListener(e -> toggleSuDungDiem());
-
-        tfMaKH.getDocument().addDocumentListener(new DocumentListener() {
-            public void changedUpdate(DocumentEvent e) { handleMaKHChange(); }
-            public void removeUpdate(DocumentEvent e) { handleMaKHChange(); }
-            public void insertUpdate(DocumentEvent e) { handleMaKHChange(); }
-        });
-
-        loadSanPham();
-        System.out.println("SELL_VIEW: initUI hoàn tất.");
+        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(tableSanPham), new JScrollPane(tableGioHang));
+        splitPane.setResizeWeight(0.6);
+        splitPane.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
+        return splitPane;
     }
 
-    private void styleTable(JTable table) {
-        table.setFillsViewportHeight(true);
-        table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-        table.setRowHeight(28);
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.getTableHeader().setReorderingAllowed(false);
-         if (table == tableSanPham) {
-             table.getColumnModel().getColumn(0).setPreferredWidth(60);
-             table.getColumnModel().getColumn(1).setPreferredWidth(180);
-             table.getColumnModel().getColumn(6).setPreferredWidth(70);
-         } else if (table == tableHoaDon) {
-             table.getColumnModel().getColumn(0).setPreferredWidth(60);
-             table.getColumnModel().getColumn(1).setPreferredWidth(180);
-         }
+    private JPanel createBottomPanel() {
+        JPanel bottomPanel = new JPanel(new BorderLayout(10, 10));
+        bottomPanel.setOpaque(false);
+        bottomPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 10, 10));
+
+
+        JButton btnThem = new JButton();
+        styleButton(btnThem, COLOR_SUCCESS, "/icons/arrow-right.png");
+        btnThem.setToolTipText("Thêm vào giỏ hàng");
+
+        JButton btnXoa = new JButton();
+        styleButton(btnXoa, COLOR_WARNING, "/icons/arrow-left.png");
+        btnXoa.setToolTipText("Xóa khỏi giỏ hàng");
+
+        JPanel controlPanel = new JPanel();
+        controlPanel.setOpaque(false);
+        controlPanel.add(btnThem);
+        controlPanel.add(btnXoa);
+
+        JPanel paymentPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
+        paymentPanel.setOpaque(false);
+        JLabel lblTotalTitle = new JLabel("Tổng thanh toán:");
+        lblTotalTitle.setFont(FONT_TOTAL);
+
+        lblTongTien = new JLabel(currencyFormatter.format(0));
+        lblTongTien.setFont(FONT_TOTAL);
+
+        lblDiscountInfo = new JLabel();
+        lblDiscountInfo.setFont(FONT_DISCOUNT);
+        lblDiscountInfo.setForeground(COLOR_DANGER);
+
+        btnThanhToan = new JButton("THANH TOÁN");
+        styleButton(btnThanhToan, COLOR_SUCCESS);
+
+        paymentPanel.add(lblTotalTitle);
+        paymentPanel.add(lblDiscountInfo);
+        paymentPanel.add(lblTongTien);
+        paymentPanel.add(btnThanhToan);
+
+        bottomPanel.add(controlPanel, BorderLayout.CENTER);
+        bottomPanel.add(paymentPanel, BorderLayout.EAST);
+
+        btnThem.addActionListener(e -> themVaoGioHang());
+        btnXoa.addActionListener(e -> xoaKhoiGioHang());
+        return bottomPanel;
     }
 
-    private JButton createStyledButton(String text) {
-        JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        btn.setFocusPainted(false);
-        btn.setBackground(new Color(0, 123, 255));
-        btn.setForeground(Color.WHITE);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0, 86, 179), 1),
-                BorderFactory.createEmptyBorder(8, 18, 8, 18)
-        ));
-        return btn;
+    private void addActionListeners() {
+        btnToggleSuDungDiem.addActionListener(e -> toggleSuDungDiem());
+        btnThanhToan.addActionListener(e -> thanhToan());
     }
 
-    private void loadSanPham() {
-        System.out.println("SELL_VIEW: Bắt đầu tải danh sách sản phẩm.");
-        modelSanPham.setRowCount(0);
-        // Gọi phương thức static từ SanPhamQuery
-        List<SanPham> sanPhams = SanPhamQuery.getAllSanPhamActiving();
-        if (sanPhams != null && !sanPhams.isEmpty()) {
-            for (SanPham sp : sanPhams) {
-                modelSanPham.addRow(new Object[]{
-                        sp.getMaSP(), sp.getTenSP(), sp.getMau(), sp.getDonGia(),
-                        sp.getNuocSX(), sp.getHangSX(), sp.getSoLuong()
-                });
-            }
-            System.out.println("SELL_VIEW: Đã tải " + sanPhams.size() + " sản phẩm.");
-        } else {
-            System.out.println("SELL_VIEW: Không có sản phẩm nào để tải hoặc có lỗi.");
+    // --- CÁC PHƯƠNG THỨC HỖ TRỢ ---
+
+    /**
+     * Định dạng một JButton với màu nền và màu chữ tương phản tự động.
+     */
+    private void styleButton(JButton button, Color backgroundColor) {
+        styleButton(button, backgroundColor, null);
+    }
+    
+    /**
+     * Định dạng một JButton với màu nền, màu chữ tương phản và icon (tùy chọn).
+     */
+    private void styleButton(JButton button, Color backgroundColor, String iconPath) {
+        button.setBackground(backgroundColor);
+        button.setFont(FONT_BUTTON);
+        button.setFocusPainted(false);
+        button.setBorder(BorderFactory.createEmptyBorder(8, 18, 8, 18));
+    
+        // *** TỐI ƯU: Tự động quyết định màu chữ (đen/trắng) dựa trên độ sáng của màu nền ***
+        // Điều này đảm bảo độ tương phản luôn tốt, giúp chữ dễ đọc.
+        double luminance = (0.299 * backgroundColor.getRed() + 0.587 * backgroundColor.getGreen() + 0.114 * backgroundColor.getBlue());
+        if (luminance > 150) { // Nền được coi là "sáng"
+            button.setForeground(COLOR_TEXT_ON_LIGHT); // Chữ màu đen
+        } else { // Nền được coi là "tối"
+            button.setForeground(COLOR_TEXT_ON_DARK); // Chữ màu trắng
         }
-    }
-
-    private void updateTotalAmount() {
-        double subTotal = 0;
-        for (int i = 0; i < modelHoaDon.getRowCount(); i++) {
-            subTotal += (double) modelHoaDon.getValueAt(i, 4);
-        }
-
-        double finalTotalTruocThue = subTotal;
-        if (suDungDiemDangApDung && phanTramGiamHienTai > 0) {
-            finalTotalTruocThue = subTotal * (1 - (double) phanTramGiamHienTai / 100.0);
-        }
-        double tienThue = finalTotalTruocThue * 0.10; // 10% VAT
-        double finalTotalSauThue = finalTotalTruocThue + tienThue;
-
-        lblTongTien.setText(String.format("Tổng tiền thanh toán: %,.0f VNĐ", finalTotalSauThue));
-    }
-
-    private void handleMaKHChange() {
-        String maKHStr = tfMaKH.getText().trim();
-        if (maKHStr.isEmpty()) {
-            btnSuDungDiem.setEnabled(false);
-            // tfMaTichDiem.setEnabled(false); // Loại bỏ
-            // tfMaTichDiem.setText("");      // Loại bỏ
-            tfTenKH.setText("");
-            tfSdtKH.setText("");
-
-            if (suDungDiemDangApDung) {
-                suDungDiemDangApDung = false;
-                phanTramGiamHienTai = 0;
-                btnSuDungDiem.setText("Sử dụng điểm thưởng");
-                btnSuDungDiem.setBackground(new Color(0, 123, 255));
-                lblGiamGia.setText("Giảm giá: 0%");
-                updateTotalAmount();
-            }
-        } else {
+    
+        if (iconPath != null && !iconPath.isEmpty()) {
             try {
-                int maKH = Integer.parseInt(maKHStr);
-                btnSuDungDiem.setEnabled(true);
-                // tfMaTichDiem.setEnabled(true); // Loại bỏ
-                KhachHang kh = KhachHangQuery.getKhachHangById(maKH);
-                if (kh != null) {
-                    tfTenKH.setText(kh.getHoTen());
-                    tfSdtKH.setText(kh.getSdtKH());
-                } else {
-                    tfTenKH.setText("");
-                    tfSdtKH.setText("");
-                    // Không cần JOptionPane ở đây, để người dùng tiếp tục nhập hoặc tạo KH mới khi bán
-                }
-            } catch (NumberFormatException e) {
-                btnSuDungDiem.setEnabled(false);
-                // tfMaTichDiem.setEnabled(false); // Loại bỏ
-                tfTenKH.setText("");
-                tfSdtKH.setText("");
-                if (suDungDiemDangApDung) {
-                     suDungDiemDangApDung = false;
-                     phanTramGiamHienTai = 0;
-                     btnSuDungDiem.setText("Sử dụng điểm thưởng");
-                     lblGiamGia.setText("Giảm giá: 0%");
-                     updateTotalAmount();
-                }
+                ImageIcon icon = new ImageIcon(getClass().getResource(iconPath));
+                Image img = icon.getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH);
+                button.setIcon(new ImageIcon(img));
+                button.setText(""); // Bỏ text nếu có icon
+                button.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Padding cho icon
+            } catch (Exception e) {
+                System.err.println("Không tìm thấy icon: " + iconPath);
+                // Fallback text
+                if (iconPath.contains("right")) button.setText("Thêm");
+                if (iconPath.contains("left")) button.setText("Xóa");
             }
         }
     }
 
-     private void toggleSuDungDiem() {
-        String maKHStr = tfMaKH.getText().trim();
-        if (maKHStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập Mã Khách Hàng trước.", "Thiếu Mã KH", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        try {
-             int maKH = Integer.parseInt(maKHStr);
-             if (!KhachHangQuery.exists(maKH)) { // Kiểm tra KH có tồn tại không
-                 JOptionPane.showMessageDialog(this, "Không tìm thấy khách hàng với mã: " + maKHStr, "Lỗi Mã KH", JOptionPane.ERROR_MESSAGE);
-                 return;
-             }
+    private void moveSelectedRows(JTable sourceTable, DefaultTableModel sourceModel, DefaultTableModel destModel) {
+        int[] selectedRows = sourceTable.getSelectedRows();
+        if (selectedRows.length == 0) return;
 
-             if (!suDungDiemDangApDung) {
-                 int diemHienTai = KhachHangQuery.getSoDiemTichLuy(maKH);
-                 if (diemHienTai <= 0) {
-                     JOptionPane.showMessageDialog(this, "Khách hàng không có điểm thưởng hoặc không đủ điểm.", "Không có điểm", JOptionPane.INFORMATION_MESSAGE);
-                     return;
-                 }
-                 phanTramGiamHienTai = KhachHangQuery.tinhPhanTramGiamTuDiem(maKH);
-                 if (phanTramGiamHienTai > 0) {
-                     suDungDiemDangApDung = true;
-                     btnSuDungDiem.setText("Hủy dùng điểm");
-                     btnSuDungDiem.setBackground(new Color(220, 53, 69));
-                     lblGiamGia.setText(String.format("Giảm giá: %d%% (Điểm: %d)", phanTramGiamHienTai, diemHienTai));
-                     // tfMaTichDiem.setEnabled(false); // Loại bỏ
-                     // tfMaTichDiem.setText("");      // Loại bỏ
-                     System.out.println("SELL_VIEW: Áp dụng " + phanTramGiamHienTai + "% giảm giá từ điểm.");
-                 } else {
-                     JOptionPane.showMessageDialog(this, "Không đủ điểm để được giảm giá (tối thiểu 100 điểm cho 1%).", "Không đủ điểm", JOptionPane.INFORMATION_MESSAGE);
-                 }
-             } else {
-                 suDungDiemDangApDung = false;
-                 phanTramGiamHienTai = 0;
-                 btnSuDungDiem.setText("Sử dụng điểm thưởng");
-                 btnSuDungDiem.setBackground(new Color(0, 123, 255));
-                 lblGiamGia.setText("Giảm giá: 0%");
-                 // tfMaTichDiem.setEnabled(true); // Loại bỏ - không còn tfMaTichDiem
-                 System.out.println("SELL_VIEW: Hủy sử dụng điểm thưởng.");
-             }
-             updateTotalAmount();
-        } catch (NumberFormatException e){
-             JOptionPane.showMessageDialog(this, "Mã khách hàng không hợp lệ.", "Lỗi Mã KH", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-
-    private void themVaoHoaDon() {
-        int selectedRowSP = tableSanPham.getSelectedRow();
-        if (selectedRowSP == -1) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một sản phẩm từ danh sách để thêm.", "Chưa chọn sản phẩm", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        int soLuongMua = (Integer) spinnerSoLuong.getValue();
-        if (soLuongMua <= 0) {
-            JOptionPane.showMessageDialog(this, "Số lượng phải lớn hơn 0.", "Số lượng không hợp lệ", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        int maSP = (Integer) modelSanPham.getValueAt(selectedRowSP, 0);
-        String tenSP = modelSanPham.getValueAt(selectedRowSP, 1).toString();
-        double donGia = (Double) modelSanPham.getValueAt(selectedRowSP, 3);
-        int tonKhoHienTai = (Integer) modelSanPham.getValueAt(selectedRowSP, 6);
-
-        for (int i = 0; i < modelHoaDon.getRowCount(); i++) {
-            if ((Integer)modelHoaDon.getValueAt(i, 0) == maSP) {
-                int soLuongTrongHDHienTai = (Integer) modelHoaDon.getValueAt(i, 2);
-                int tongSoLuongMoi = soLuongTrongHDHienTai + soLuongMua;
-                if (tongSoLuongMoi > tonKhoHienTai) {
-                    JOptionPane.showMessageDialog(this, "Số lượng yêu cầu (" + tongSoLuongMoi + ") vượt quá tồn kho (" + tonKhoHienTai + ") cho sản phẩm " + tenSP + ".", "Hết hàng", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                modelHoaDon.setValueAt(tongSoLuongMoi, i, 2);
-                modelHoaDon.setValueAt(tongSoLuongMoi * donGia, i, 4);
-                updateTotalAmount();
-                System.out.println("SELL_VIEW: Đã cập nhật số lượng cho SP ID '" + maSP + "' trong hóa đơn.");
-                return;
+        for (int i = selectedRows.length - 1; i >= 0; i--) {
+            int modelRow = sourceTable.convertRowIndexToModel(selectedRows[i]);
+            Object[] rowData = new Object[sourceModel.getColumnCount()];
+            for (int col = 0; col < sourceModel.getColumnCount(); col++) {
+                rowData[col] = sourceModel.getValueAt(modelRow, col);
             }
+            destModel.addRow(rowData);
+            sourceModel.removeRow(modelRow);
         }
-
-        if (soLuongMua > tonKhoHienTai) {
-            JOptionPane.showMessageDialog(this, "Số lượng yêu cầu (" + soLuongMua + ") vượt quá tồn kho (" + tonKhoHienTai + ") cho sản phẩm " + tenSP + ".", "Hết hàng", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        modelHoaDon.addRow(new Object[]{maSP, tenSP, soLuongMua, donGia, soLuongMua * donGia});
-        updateTotalAmount();
-        System.out.println("SELL_VIEW: Đã thêm SP ID '" + maSP + "' vào hóa đơn.");
+        updateTotalAmountDisplay();
     }
 
-    private void xoaKhoiHoaDon() {
-        int selectedRowHD = tableHoaDon.getSelectedRow();
-        if (selectedRowHD == -1) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một sản phẩm trong hóa đơn để xóa.", "Chưa chọn sản phẩm", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        modelHoaDon.removeRow(selectedRowHD);
-        updateTotalAmount();
-        System.out.println("SELL_VIEW: Đã xóa sản phẩm khỏi hóa đơn.");
-    }
+    // --- CÁC PHƯƠNG THỨC LOGIC ---
 
-    private void banHang() {
-        System.out.println("SELL_VIEW: Nút 'Tạo Hóa Đơn' được nhấn.");
-        if (modelHoaDon.getRowCount() == 0) {
-            JOptionPane.showMessageDialog(this, "Hóa đơn đang trống! Vui lòng thêm sản phẩm.", "Hóa đơn trống", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+    private void loadAvailableProducts() {
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new SwingWorker<List<ChiTietDonHang>, Void>() {
+            @Override
+            protected List<ChiTietDonHang> doInBackground() { return SPCuTheQuery.getProductsForSale(); }
 
-        String maKHStr = tfMaKH.getText().trim();
-        String tenKH = tfTenKH.getText().trim();
-        String sdtKH = tfSdtKH.getText().trim();
-        Integer maKHInteger = null;
-
-        if (!maKHStr.isEmpty()) {
-            try {
-                maKHInteger = Integer.parseInt(maKHStr);
-                 // Kiểm tra xem KH có tồn tại không nếu có mã
-                if (!KhachHangQuery.exists(maKHInteger)) {
-                    // Nếu không tồn tại và có tên + SĐT -> sẽ tạo KH mới trong controller
-                    // Nếu không tồn tại và không có tên + SĐT -> lỗi
-                    if (tenKH.isEmpty() || sdtKH.isEmpty()) {
-                         JOptionPane.showMessageDialog(this, "Mã KH không tồn tại và thiếu thông tin Tên/SĐT để tạo KH mới.", "Lỗi Khách Hàng", JOptionPane.ERROR_MESSAGE);
-                         return;
+            @Override
+            protected void done() {
+                try {
+                    List<ChiTietDonHang> dsSanPham = get();
+                    modelSanPham.setRowCount(0);
+                    for (ChiTietDonHang sp : dsSanPham) {
+                        modelSanPham.addRow(new Object[]{sp.getMaSPCuThe(), sp.getTenSP(), sp.getMau(), sp.getGiaXuat()});
                     }
-                     System.out.println("SELL_VIEW: MaKH " + maKHInteger + " không tồn tại, sẽ thử tạo KH mới nếu có Tên và SĐT.");
-                } else {
-                     KhachHang khExisting = KhachHangQuery.getKhachHangById(maKHInteger);
-                     if (khExisting != null) {
-                         tenKH = khExisting.getHoTen(); // Dùng thông tin từ DB cho chắc
-                         sdtKH = khExisting.getSdtKH();
-                         tfTenKH.setText(tenKH); // Cập nhật lại UI
-                         tfSdtKH.setText(sdtKH);
-                     }
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(SellProductView.this, "Lỗi khi tải danh sách sản phẩm.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    setCursor(Cursor.getDefaultCursor());
                 }
-            } catch (NumberFormatException e) {
-                JOptionPane.showMessageDialog(this, "Mã Khách Hàng không hợp lệ.", "Lỗi Mã KH", JOptionPane.ERROR_MESSAGE);
-                tfMaKH.requestFocus();
-                return;
             }
-        } else { // Khách vãng lai, không có MaKH
-            if (tenKH.isEmpty() || sdtKH.isEmpty()) {
-                int choice = JOptionPane.showConfirmDialog(this,
-                        "Bạn chưa nhập Mã KH. Thông tin Tên và SĐT cũng trống.\n" +
-                        "Hóa đơn sẽ được tạo cho khách vãng lai (không có thông tin KH cụ thể).\n" +
-                        "Bạn có muốn tiếp tục không?",
-                        "Xác nhận khách vãng lai", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE);
-                if (choice == JOptionPane.NO_OPTION) return;
-                tenKH = "Khách vãng lai"; // Hoặc để trống
-                sdtKH = "";
-            }
+        }.execute();
+    }
+
+    private void timKhachHang() {
+        String input = tfMaKH.getText().trim();
+        if (input.isEmpty()) {
+            resetCustomerInfo();
+            return;
         }
 
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        new SwingWorker<KhachHang, Void>() {
+            @Override
+            protected KhachHang doInBackground() throws Exception {
+                // Đặt lại thông tin khách hàng hiện tại trước khi tìm kiếm
+                khachHangHienTai = null;
+                suDungDiemIsActive = false;
+                int maKH = Integer.parseInt(input);
+                return KhachHangQuery.getKhachHangById(maKH);
+            }
+            @Override
+            protected void done() {
+                try {
+                    khachHangHienTai = get();
+                    if (khachHangHienTai != null) {
+                        tfMaKH.setText(String.valueOf(khachHangHienTai.getMaKH()));
+                        tfTenKH.setText(khachHangHienTai.getHoTen());
+                        tfSdtKH.setText(khachHangHienTai.getSdtKH());
 
-        List<ChiTietHDXuat> danhSachChiTiet = new ArrayList<>();
-        for (int i = 0; i < modelHoaDon.getRowCount(); i++) {
-            int maSP_CT = (Integer) modelHoaDon.getValueAt(i, 0);
-            int soLuong_CT = (Integer) modelHoaDon.getValueAt(i, 2);
-            double donGia_CT = (Double) modelHoaDon.getValueAt(i, 3);
-            danhSachChiTiet.add(new ChiTietHDXuat(maSP_CT, soLuong_CT, donGia_CT));
-        }
+                        int diem = khachHangHienTai.getSoDiemTichLuy();
+                        int phanTramGiam = Math.min(diem / 100, 20);
 
-        System.out.println("SELL_VIEW: Chuẩn bị gọi controller.banHang..." );
-        // Gọi controller, không còn maTheTichDiemKhachCungCap
-        Integer maHDXGenerated = sellProductController.banHang(
-                maNV,
-                maKHInteger,
-                tenKH, sdtKH,
-                danhSachChiTiet,
-                suDungDiemDangApDung,
-                phanTramGiamHienTai);
+                        if (phanTramGiam > 0) {
+                            lblGiamGia.setText(String.format("<html>Có thể giảm <font color='red'>%d%%</font> (Điểm: %d)</html>", phanTramGiam, diem));
+                        } else {
+                            lblGiamGia.setText(String.format("Không đủ điểm để giảm giá (Điểm: %d)", diem));
+                        }
+                    } else {
+                        tfTenKH.setText("");
+                        tfSdtKH.setText("");
+                        lblGiamGia.setText("Không tìm thấy khách hàng.");
+                    }
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(SellProductView.this, "Mã khách hàng phải là một số.", "Lỗi Định Dạng", JOptionPane.ERROR_MESSAGE);
+                    resetCustomerInfo();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(SellProductView.this, "Lỗi khi tìm khách hàng.", "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE);
+                    ex.printStackTrace();
+                    resetCustomerInfo();
+                } finally {
+                    updateDiscountButtonState();
+                    updateTotalAmountDisplay();
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            }
+        }.execute();
+    }
 
-        if (maHDXGenerated != null && maHDXGenerated > 0) {
-            JOptionPane.showMessageDialog(this, "Tạo hóa đơn thành công! Mã HĐX: " + maHDXGenerated, "Thành công", JOptionPane.INFORMATION_MESSAGE);
-            resetFormBanHang();
+    private void resetCustomerInfo() {
+        khachHangHienTai = null;
+        tfTenKH.setText("");
+        tfSdtKH.setText("");
+        lblGiamGia.setText("Nhập Mã KH để xem ưu đãi.");
+        suDungDiemIsActive = false;
+        updateDiscountButtonState();
+        updateTotalAmountDisplay();
+    }
+
+    /**
+     * Cập nhật trạng thái (văn bản, màu sắc, trạng thái enabled) của nút sử dụng điểm.
+     * Phương thức này tập trung logic để dễ quản lý.
+     */
+    private void updateDiscountButtonState() {
+        boolean canUsePoints = khachHangHienTai != null && (khachHangHienTai.getSoDiemTichLuy() / 100) > 0;
+        btnToggleSuDungDiem.setEnabled(canUsePoints);
+
+        if (suDungDiemIsActive && canUsePoints) {
+            btnToggleSuDungDiem.setText("HỦY SỬ DỤNG ĐIỂM");
+            styleButton(btnToggleSuDungDiem, COLOR_DANGER);
         } else {
-            JOptionPane.showMessageDialog(this, "Tạo hóa đơn thất bại! Vui lòng kiểm tra lại thông tin, tồn kho và log lỗi.", "Lỗi tạo hóa đơn", JOptionPane.ERROR_MESSAGE);
-            System.err.println("SELL_VIEW: Tạo hóa đơn thất bại.");
+            btnToggleSuDungDiem.setText("Sử dụng điểm thưởng");
+            styleButton(btnToggleSuDungDiem, COLOR_PRIMARY);
         }
     }
 
-    private void resetFormBanHang() {
-        modelHoaDon.setRowCount(0);
-        // tfMaHDX.setText("HDX" + System.currentTimeMillis() % 100000); // Loại bỏ
+
+    private void toggleSuDungDiem() {
+        suDungDiemIsActive = !suDungDiemIsActive;
+        updateDiscountButtonState();
+        updateTotalAmountDisplay();
+    }
+
+    private void themVaoGioHang() {
+        moveSelectedRows(tableSanPham, modelSanPham, modelGioHang);
+    }
+
+    private void xoaKhoiGioHang() {
+        moveSelectedRows(tableGioHang, modelGioHang, modelSanPham);
+    }
+
+    private BigDecimal calculateSubtotal() {
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (int i = 0; i < modelGioHang.getRowCount(); i++) {
+            subtotal = subtotal.add((BigDecimal) modelGioHang.getValueAt(i, 3));
+        }
+        return subtotal;
+    }
+
+    private BigDecimal calculateDiscountAmount(BigDecimal subtotal) {
+        if (suDungDiemIsActive && khachHangHienTai != null) {
+            int diem = khachHangHienTai.getSoDiemTichLuy();
+            int phanTramGiam = Math.min(diem / 100, 20);
+            if (phanTramGiam > 0) {
+                BigDecimal discountRate = new BigDecimal(phanTramGiam).divide(new BigDecimal(100));
+                return subtotal.multiply(discountRate).setScale(0, RoundingMode.HALF_UP);
+            }
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private void updateTotalAmountDisplay() {
+        BigDecimal subtotal = calculateSubtotal();
+        BigDecimal discountAmount = calculateDiscountAmount(subtotal);
+        BigDecimal amountAfterDiscount = subtotal.subtract(discountAmount);
+        BigDecimal vatAmount = amountAfterDiscount.multiply(VAT_RATE);
+        BigDecimal totalPayable = amountAfterDiscount.add(vatAmount);
+
+        if(discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+            lblDiscountInfo.setText(String.format("(Giảm: %s)", currencyFormatter.format(discountAmount)));
+        } else {
+            lblDiscountInfo.setText("");
+        }
+        lblTongTien.setText(currencyFormatter.format(totalPayable));
+    }
+
+    private void thanhToan() {
+        if (modelGioHang.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "Giỏ hàng trống! Vui lòng thêm sản phẩm.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        Integer maKH = (khachHangHienTai != null) ? khachHangHienTai.getMaKH() : null;
+        List<String> dsMaSPCuThe = new ArrayList<>();
+        for (int i = 0; i < modelGioHang.getRowCount(); i++) {
+            dsMaSPCuThe.add((String) modelGioHang.getValueAt(i, 0));
+        }
+        BigDecimal tongTienGoc = calculateSubtotal();
+
+        btnThanhToan.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        new SwingWorker<Integer, Void>() {
+            @Override
+            protected Integer doInBackground() throws Exception {
+                return sellProductController.banHang(maNV, maKH, dsMaSPCuThe, suDungDiemIsActive, tongTienGoc);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    Integer maHDX = get();
+                    if (maHDX != null) {
+                        JOptionPane.showMessageDialog(SellProductView.this, "Thanh toán thành công!\nMã hóa đơn mới là: " + maHDX, "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                        resetForm();
+                    } else {
+                        modelGioHang.setRowCount(0);
+                        loadAvailableProducts();
+                        updateTotalAmountDisplay();
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(SellProductView.this, "Đã xảy ra lỗi trong quá trình thanh toán.", "Lỗi nghiêm trọng", JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    btnThanhToan.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            }
+        }.execute();
+    }
+
+    private void resetForm() {
+        modelGioHang.setRowCount(0);
         tfMaKH.setText("");
-        // tfTenKH, tfSdtKH, tfMaTichDiem sẽ tự động xóa/disable bởi handleMaKHChange
-
-        spinnerSoLuong.setValue(1);
-
-        suDungDiemDangApDung = false;
-        phanTramGiamHienTai = 0;
-        btnSuDungDiem.setText("Sử dụng điểm thưởng");
-        btnSuDungDiem.setBackground(new Color(0, 123, 255)); // Reset màu nút
-        btnSuDungDiem.setEnabled(false);
-        lblGiamGia.setText("Giảm giá: 0%");
-
-        updateTotalAmount();
-        loadSanPham();
-        System.out.println("SELL_VIEW: Form bán hàng đã được reset.");
+        resetCustomerInfo();
+        loadAvailableProducts();
     }
 }

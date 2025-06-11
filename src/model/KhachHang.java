@@ -5,23 +5,17 @@ public class KhachHang {
     private String hoTen;
     private String sdtKH;
     private int soDiemTichLuy;
-
-    // Constructor khi đọc từ DB (có MaKH)
     public KhachHang(int maKH, String hoTen, String sdtKH, int soDiemTichLuy) {
         this.maKH = maKH;
         this.hoTen = hoTen;
         this.sdtKH = sdtKH;
         this.soDiemTichLuy = soDiemTichLuy;
     }
-
-    // Constructor khi tạo mới (MaKH tự sinh)
     public KhachHang(String hoTen, String sdtKH, int soDiemTichLuy) {
         this.hoTen = hoTen;
         this.sdtKH = sdtKH;
         this.soDiemTichLuy = soDiemTichLuy;
     }
-    
-    // Constructor khi tạo mới chỉ với thông tin cơ bản, điểm mặc định là 0
     public KhachHang(String hoTen, String sdtKH) {
         this.hoTen = hoTen;
         this.sdtKH = sdtKH;

@@ -1,262 +1,355 @@
 package view.common;
 
 import controller.common.RegisterController;
+import model.TaiKhoan;
+
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException; 
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+
 public class RegisterView extends JFrame {
     private static final long serialVersionUID = 1L;
 
-    private final JTextField usernameField = new JTextField(20);
-    private final JPasswordField passwordField = new JPasswordField(20);
-    private final JComboBox<String> roleComboBox = new JComboBox<>(new String[]{"khachhang", "nhanvien", "admin"});
-    
-    private final JPanel khPanel = new JPanel();
-    private final JTextField hoTenKHField = new JTextField(15);
-    private final JTextField sdtKHField = new JTextField(15);
-    
-    private final JPanel nvPanel = new JPanel();
-    private final JTextField tenNVField = new JTextField(15);
-    private final JTextField ngaySinhField = new JTextField(15); // Format YYYY-MM-DD
-    private final JTextField luongField = new JTextField(15);
-    private final JTextField sdtNVField = new JTextField(15);
+    // --- Components ---
+    private JTextField usernameField;
+    private JPasswordField passwordField;
+    private JComboBox<TaiKhoan.VaiTro> roleComboBox;
 
+    // Customer Panel Components
+    private JPanel khPanel;
+    private JTextField hoTenKHField;
+    private JTextField sdtKHField;
+
+    // Employee Panel Components
+    private JPanel nvPanel;
+    private JTextField tenNVField;
+    private JTextField ngaySinhField;
+    private JSpinner luongSpinner;
+    private JTextField sdtNVField;
+
+    // Buttons
     private JButton registerButton;
+    private JButton backButton;
+
+    // --- Utilities ---
+    private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public RegisterView() {
-        System.out.println("REGISTER_VIEW: Constructor RegisterView bắt đầu.");
-        setTitle("Đăng ký tài khoản mới");
+        setTitle("Đăng Ký Tài Khoản Mới");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setResizable(false);
 
+        // Khởi tạo các thành phần trước khi gọi initUI
+        initComponents();
+        // Cấu hình giao diện
+        initUI();
+        // Gán sự kiện
+        initActions();
+
+        pack();
+        setLocationRelativeTo(null); // Đặt frame ở giữa màn hình
+    }
+
+    private void initComponents() {
+        usernameField = new JTextField(20);
+        passwordField = new JPasswordField(20);
+        roleComboBox = new JComboBox<>(
+                new TaiKhoan.VaiTro[]{TaiKhoan.VaiTro.KHACH_HANG, TaiKhoan.VaiTro.NHAN_VIEN, TaiKhoan.VaiTro.ADMIN}
+        );
+        roleComboBox.setRenderer(new VaiTroRenderer());
+
+        // Customer panel
+        hoTenKHField = new JTextField(15);
+        sdtKHField = new JTextField(15);
+
+        // Employee panel
+        tenNVField = new JTextField(15);
+        ngaySinhField = new JTextField(15);
+        sdtNVField = new JTextField(15);
+
+        // Spinner cho lương với model tùy chỉnh
+        BigDecimalSpinnerModel luongModel = new BigDecimalSpinnerModel(
+                new BigDecimal("5000000"),  // initial value
+                new BigDecimal("0"),        // min value
+                null,                       // max value (unbounded)
+                new BigDecimal("100000")    // step
+        );
+        luongSpinner = new JSpinner(luongModel);
+        JSpinner.NumberEditor editorLuong = new JSpinner.NumberEditor(luongSpinner, "#,##0 VNĐ");
+        luongSpinner.setEditor(editorLuong);
+
+        // Buttons
+        registerButton = new JButton("Đăng ký");
+        backButton = new JButton("Quay lại");
+    }
+
+    private void initUI() {
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(25, 35, 25, 35));
+        mainPanel.setBorder(new EmptyBorder(30, 40, 30, 40));
 
+        // --- Title ---
         JLabel lblTitle = new JLabel("ĐĂNG KÝ TÀI KHOẢN");
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 22));
+        lblTitle.setFont(new Font("Arial", Font.BOLD, 24));
         lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
+        lblTitle.setBorder(new EmptyBorder(0, 0, 30, 0));
         mainPanel.add(lblTitle);
 
-        mainPanel.add(createStyledFieldPanel("Tên đăng nhập*:", usernameField));
-        mainPanel.add(Box.createVerticalStrut(10));
-        mainPanel.add(createStyledFieldPanel("Mật khẩu*:", passwordField));
-        mainPanel.add(Box.createVerticalStrut(10));
-        mainPanel.add(createStyledFieldPanel("Đăng ký với vai trò*:", roleComboBox));
+        // --- Input Fields Panel (sử dụng GridBagLayout để căn chỉnh) ---
+        JPanel inputFieldsPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 0, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Tên đăng nhập
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.3; // Label
+        JLabel lblUsername = new JLabel("Tên đăng nhập*:");
+        styleLabel(lblUsername);
+        inputFieldsPanel.add(lblUsername, gbc);
+
+        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 0.7; // Field
+        styleTextField(usernameField);
+        inputFieldsPanel.add(usernameField, gbc);
+
+        // Mật khẩu
+        gbc.gridx = 0; gbc.gridy = 1;
+        JLabel lblPassword = new JLabel("Mật khẩu*:");
+        styleLabel(lblPassword);
+        inputFieldsPanel.add(lblPassword, gbc);
+
+        gbc.gridx = 1; gbc.gridy = 1;
+        styleTextField(passwordField);
+        inputFieldsPanel.add(passwordField, gbc);
+
+        // Vai trò
+        gbc.gridx = 0; gbc.gridy = 2;
+        JLabel lblRole = new JLabel("Vai trò*:");
+        styleLabel(lblRole);
+        inputFieldsPanel.add(lblRole, gbc);
+
+        gbc.gridx = 1; gbc.gridy = 2;
+        roleComboBox.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        inputFieldsPanel.add(roleComboBox, gbc);
+
+        mainPanel.add(inputFieldsPanel);
         mainPanel.add(Box.createVerticalStrut(15));
 
-        khPanel.setLayout(new BoxLayout(khPanel, BoxLayout.Y_AXIS));
-        khPanel.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createEtchedBorder(), "Thông tin Khách hàng"));
-        // khPanel.add(createStyledFieldPanel("Mã khách hàng*:", maKHField)); // Bỏ
-        // khPanel.add(Box.createVerticalStrut(5)); // Bỏ
-        khPanel.add(createStyledFieldPanel("Họ và tên*:", hoTenKHField));
-        khPanel.add(Box.createVerticalStrut(5));
-        khPanel.add(createStyledFieldPanel("Số điện thoại*:", sdtKHField));
-        khPanel.add(Box.createVerticalStrut(5));
+        // --- Customer Info Panel ---
+        khPanel = createRolePanel("Thông tin Khách hàng");
+        addGridBagComponent(khPanel, new JLabel("Họ tên*:"), 0, 0);
+        addGridBagComponent(khPanel, hoTenKHField, 1, 0);
+        addGridBagComponent(khPanel, new JLabel("SĐT*:"), 0, 1);
+        addGridBagComponent(khPanel, sdtKHField, 1, 1);
         mainPanel.add(khPanel);
 
-        nvPanel.setLayout(new BoxLayout(nvPanel, BoxLayout.Y_AXIS));
-        nvPanel.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createEtchedBorder(), "Thông tin Nhân viên"));
-        // nvPanel.add(createStyledFieldPanel("Mã nhân viên*:", maNVField)); // Bỏ
-        // nvPanel.add(Box.createVerticalStrut(5)); // Bỏ
-        nvPanel.add(createStyledFieldPanel("Tên nhân viên*:", tenNVField));
-        nvPanel.add(Box.createVerticalStrut(5));
-        nvPanel.add(createStyledFieldPanel("Ngày sinh (YYYY-MM-DD)*:", ngaySinhField));
-        nvPanel.add(Box.createVerticalStrut(5));
-        nvPanel.add(createStyledFieldPanel("Lương (VNĐ)*:", luongField));
-        nvPanel.add(Box.createVerticalStrut(5));
-        nvPanel.add(createStyledFieldPanel("Số điện thoại*:", sdtNVField));
-        nvPanel.add(Box.createVerticalStrut(5));
+        // --- Employee Info Panel ---
+        nvPanel = createRolePanel("Thông tin Nhân viên");
+        addGridBagComponent(nvPanel, new JLabel("Tên nhân viên*:"), 0, 0);
+        addGridBagComponent(nvPanel, tenNVField, 1, 0);
+        addGridBagComponent(nvPanel, new JLabel("SĐT*:"), 0, 1);
+        addGridBagComponent(nvPanel, sdtNVField, 1, 1);
+        addGridBagComponent(nvPanel, new JLabel("Ngày sinh (dd/MM/yyyy):"), 0, 2);
+        addGridBagComponent(nvPanel, ngaySinhField, 1, 2);
+        addGridBagComponent(nvPanel, new JLabel("Lương (VNĐ)*:"), 0, 3);
+        addGridBagComponent(nvPanel, luongSpinner, 1, 3);
+        styleTextField(ngaySinhField); // Style cho các field còn lại
+        styleTextField(luongSpinner); // Áp dụng style chung
         mainPanel.add(nvPanel);
 
         mainPanel.add(Box.createVerticalStrut(20));
 
-        registerButton = new JButton("Đăng ký");
-        styleGenericButton(registerButton, new Color(40, 167, 69));
-        registerButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        // --- Button Panel ---
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
+        buttonPanel.setOpaque(false);
 
-        registerButton.addActionListener(e -> {
-            System.out.println("REGISTER_VIEW: Nút 'Đăng ký' trong RegisterView được nhấn.");
-            handleRegister();
-        });
-        mainPanel.add(registerButton);
+        styleGenericButton(registerButton, new Color(40, 167, 69)); // Green
+        styleGenericButton(backButton, new Color(108, 117, 125));  // Gray
 
-        roleComboBox.addActionListener(e -> {
-            System.out.println("REGISTER_VIEW: Vai trò thay đổi sang: " + roleComboBox.getSelectedItem());
-            updateFieldVisibility();
-        });
+        buttonPanel.add(registerButton);
+        buttonPanel.add(Box.createVerticalStrut(10));
+        buttonPanel.add(backButton);
 
-        Font commonFont = new Font("Segoe UI", Font.PLAIN, 14);
-        usernameField.setFont(commonFont);
-        passwordField.setFont(commonFont);
-        roleComboBox.setFont(commonFont);
-        // maKHField.setFont(commonFont); // Bỏ
-        hoTenKHField.setFont(commonFont);
-        sdtKHField.setFont(commonFont);
-        // maNVField.setFont(commonFont); // Bỏ
-        tenNVField.setFont(commonFont);
-        ngaySinhField.setFont(commonFont);
-        luongField.setFont(commonFont);
-        sdtNVField.setFont(commonFont);
-
-        updateFieldVisibility();
-        
-        JScrollPane scrollPane = new JScrollPane(mainPanel);
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollPane.setPreferredSize(new Dimension(520, 600)); // Điều chỉnh chiều cao nếu cần
-        scrollPane.setBorder(null);
-
-        setContentPane(scrollPane);
-        // setSize(530, 650); // Điều chỉnh kích thước Frame
-        pack(); // Sử dụng pack để tự động điều chỉnh kích thước
-        setMinimumSize(new Dimension(500, 450));
-        setLocationRelativeTo(null);
-        System.out.println("REGISTER_VIEW: Constructor RegisterView kết thúc.");
+        mainPanel.add(buttonPanel);
+        setContentPane(mainPanel);
     }
 
-    private JPanel createStyledFieldPanel(String labelText, JComponent field) {
-        JPanel panel = new JPanel(new BorderLayout(10, 0));
-        panel.setOpaque(false);
+    private void initActions() {
+        registerButton.addActionListener(e -> handleRegister());
+        backButton.addActionListener(e -> this.dispose()); // Đóng cửa sổ hiện tại
+        roleComboBox.addActionListener(e -> updateFieldVisibility());
+        updateFieldVisibility(); // Gọi lần đầu để thiết lập trạng thái ban đầu
+    }
 
-        JLabel label = new JLabel(labelText);
-        label.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        label.setPreferredSize(new Dimension(170, 28));
-        panel.add(label, BorderLayout.WEST);
+    // --- Helper methods for UI building ---
 
-        if (field instanceof JComboBox) {
-            field.setBackground(Color.WHITE);
-        } else if (field instanceof JTextField || field instanceof JPasswordField) {
-             field.setBorder(BorderFactory.createCompoundBorder(
-                field.getBorder(), 
-                BorderFactory.createEmptyBorder(3, 5, 3, 5)));
-        }
-
-        panel.add(field, BorderLayout.CENTER);
-        panel.setMaximumSize(new Dimension(Short.MAX_VALUE, field.getPreferredSize().height + 10));
+    private JPanel createRolePanel(String title) {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createTitledBorder(title));
         return panel;
     }
-    
+
+    private void addGridBagComponent(JPanel panel, JComponent comp, int x, int y) {
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = x;
+        gbc.gridy = y;
+
+        if (comp instanceof JLabel) {
+            gbc.weightx = 0.3;
+            styleLabel((JLabel) comp);
+        } else {
+            gbc.weightx = 0.7;
+            if(comp instanceof JTextField) {
+                styleTextField(comp);
+            }
+        }
+        panel.add(comp, gbc);
+    }
+
+    private void styleLabel(JLabel label) {
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+    }
+
+    private void styleTextField(JComponent field) {
+        field.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        field.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Color.GRAY, 1),
+                new EmptyBorder(5, 8, 5, 8) // Padding bên trong
+        ));
+        field.setPreferredSize(new Dimension(field.getPreferredSize().width, 35));
+    }
+
     private void styleGenericButton(JButton btn, Color backgroundColor) {
         btn.setFont(new Font("Segoe UI", Font.BOLD, 15));
         btn.setFocusPainted(false);
         btn.setBackground(backgroundColor);
         btn.setForeground(Color.WHITE);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(backgroundColor.darker(), 1),
-                BorderFactory.createEmptyBorder(10, 25, 10, 25)
-        ));
+        btn.setBorder(new EmptyBorder(10, 25, 10, 25));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btn.setPreferredSize(new Dimension(200, btn.getPreferredSize().height));
-        btn.setMaximumSize(new Dimension(250, btn.getPreferredSize().height));
+        btn.setMaximumSize(new Dimension(Short.MAX_VALUE, btn.getPreferredSize().height));
     }
 
-    private void updateFieldVisibility() {
-        String role = (String) roleComboBox.getSelectedItem();
-        if (role == null) return;
+    // --- Logic methods ---
 
-        boolean khVisible = "khachhang".equals(role);
-        boolean nvVisible = "nhanvien".equals(role);
-        
-        khPanel.setVisible(khVisible);
-        nvPanel.setVisible(nvVisible);
-        
-        // Tự động điều chỉnh kích thước frame khi panel ẩn/hiện
-        // Nên gọi pack() ở cuối hoặc khi frame đã hiển thị
-        // For immediate effect, revalidate and repaint
-        // ((JPanel)getContentPane().getComponent(0)).revalidate(); // Nếu dùng JScrollPane
-        // ((JPanel)getContentPane().getComponent(0)).repaint();
-        // Hoặc đơn giản là pack() nếu chưa hiển thị
-        // pack(); // Gọi pack ở đây có thể làm frame nhấp nháy, tốt hơn là ở constructor hoặc khi hiển thị
-        System.out.println("REGISTER_VIEW_updateFieldVisibility: KhachHang Panel visible: " + khPanel.isVisible() + ", NhanVien Panel visible: " + nvPanel.isVisible() + ", Role selected: " + role);
+    private void updateFieldVisibility() {
+        TaiKhoan.VaiTro selectedRole = (TaiKhoan.VaiTro) roleComboBox.getSelectedItem();
+        if (selectedRole == null) return;
+
+        khPanel.setVisible(selectedRole == TaiKhoan.VaiTro.KHACH_HANG);
+        nvPanel.setVisible(selectedRole == TaiKhoan.VaiTro.NHAN_VIEN);
+
+        pack(); // Rất quan trọng: Điều chỉnh lại kích thước cửa sổ cho vừa với nội dung mới
     }
 
     private void handleRegister() {
         String username = usernameField.getText().trim();
         String password = new String(passwordField.getPassword());
-        String role = "";
-        if (roleComboBox.getSelectedItem() != null) {
-            role = roleComboBox.getSelectedItem().toString().toLowerCase();
-        }
+        TaiKhoan.VaiTro role = (TaiKhoan.VaiTro) roleComboBox.getSelectedItem();
 
-        if (username.isEmpty() || password.isEmpty() || role.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui lòng nhập tên đăng nhập, mật khẩu và chọn vai trò.", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        if (password.length() < 6) {
-            JOptionPane.showMessageDialog(this, "Mật khẩu phải có ít nhất 6 ký tự.", "Mật khẩu yếu", JOptionPane.WARNING_MESSAGE);
-            passwordField.requestFocus();
-            return;
-        }
+        String hoTen = "", sdt = "";
+        LocalDate ngaySinh = null;
+        BigDecimal luong = BigDecimal.ZERO;
 
-        // Thông tin chung
-        String hoTen = "";
-        String sdt = "";
-        // Thông tin riêng cho nhân viên
-        String ngaySinhStr = null; 
-        String luongStr = null;
-        LocalDate ngaySinhDate = null;
-        double luongDouble = 0.0;
+        try {
+            // Validate common fields
+            if (username.isEmpty() || password.isEmpty() || role == null) {
+                throw new IllegalArgumentException("Tên đăng nhập, mật khẩu và vai trò không được để trống.");
+            }
 
-        if ("khachhang".equals(role)) {
-            hoTen = hoTenKHField.getText().trim();
-            sdt = sdtKHField.getText().trim();
-            if (hoTen.isEmpty() || sdt.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ Họ tên và SĐT cho khách hàng.", "Thiếu thông tin khách hàng", JOptionPane.WARNING_MESSAGE);
-                return;
+            switch (role) {
+                case KHACH_HANG:
+                    hoTen = hoTenKHField.getText().trim();
+                    sdt = sdtKHField.getText().trim();
+                    if (hoTen.isEmpty() || sdt.isEmpty()) {
+                        throw new IllegalArgumentException("Vui lòng nhập đủ họ tên và SĐT khách hàng.");
+                    }
+                    break;
+                case NHAN_VIEN:
+                    hoTen = tenNVField.getText().trim();
+                    sdt = sdtNVField.getText().trim();
+                    if (hoTen.isEmpty() || sdt.isEmpty()) {
+                        throw new IllegalArgumentException("Vui lòng nhập đủ tên và SĐT nhân viên.");
+                    }
+                    if (!ngaySinhField.getText().trim().isEmpty()) {
+                        ngaySinh = LocalDate.parse(ngaySinhField.getText().trim(), dateFormatter);
+                    }
+                    luong = (BigDecimal) luongSpinner.getValue();
+                    break;
+                case ADMIN:
+                    // Admin không cần thông tin thêm
+                    break;
             }
-        } else if ("nhanvien".equals(role)) {
-            hoTen = tenNVField.getText().trim();
-            sdt = sdtNVField.getText().trim();
-            ngaySinhStr = ngaySinhField.getText().trim();
-            luongStr = luongField.getText().trim();
-            if (hoTen.isEmpty() || sdt.isEmpty() || ngaySinhStr.isEmpty() || luongStr.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin nhân viên.", "Thiếu thông tin nhân viên", JOptionPane.WARNING_MESSAGE);
-                return;
+
+            RegisterController controller = new RegisterController();
+            String errorMessage = controller.handleRegister(username, password, role, hoTen, sdt, ngaySinh, luong);
+
+            if (errorMessage == null) {
+                JOptionPane.showMessageDialog(this, "Đăng ký thành công!", "Thành Công", JOptionPane.INFORMATION_MESSAGE);
+                this.dispose();
+            } else {
+                JOptionPane.showMessageDialog(this, errorMessage, "Lỗi Đăng Ký", JOptionPane.ERROR_MESSAGE);
             }
-            try {
-                ngaySinhDate = LocalDate.parse(ngaySinhStr); // Parse ngày sinh
-            } catch (DateTimeParseException e) { // Bắt lỗi parse cụ thể
-                JOptionPane.showMessageDialog(this, "Ngày sinh không hợp lệ. Vui lòng nhập theo định dạng YYYY-MM-DD.", "Lỗi định dạng ngày sinh", JOptionPane.ERROR_MESSAGE);
-                ngaySinhField.requestFocus();
-                return;
-            }
-            try {
-                luongDouble = Double.parseDouble(luongStr); // Parse lương
-                if (luongDouble < 0) {
-                     JOptionPane.showMessageDialog(this, "Lương không được là số âm.", "Lương không hợp lệ", JOptionPane.ERROR_MESSAGE);
-                    luongField.requestFocus();
-                    return;
+
+        } catch (IllegalArgumentException e) {
+            JOptionPane.showMessageDialog(this, "Lỗi nhập liệu: " + e.getMessage(), "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+        } catch (DateTimeParseException e) {
+            JOptionPane.showMessageDialog(this, "Định dạng ngày sinh không hợp lệ. Vui lòng dùng dd/MM/yyyy.", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // --- Inner classes for custom rendering/models ---
+
+    private static class VaiTroRenderer extends DefaultListCellRenderer {
+        private static final long serialVersionUID = 1L;
+        @Override
+        public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            if (value instanceof TaiKhoan.VaiTro) {
+                switch ((TaiKhoan.VaiTro) value) {
+                    case ADMIN: setText("Quản Trị Viên"); break;
+                    case NHAN_VIEN: setText("Nhân Viên"); break;
+                    case KHACH_HANG: setText("Khách Hàng"); break;
                 }
-            } catch (NumberFormatException e) {
-                 JOptionPane.showMessageDialog(this, "Lương phải là một số hợp lệ.", "Lỗi định dạng lương", JOptionPane.ERROR_MESSAGE);
-                luongField.requestFocus();
-                return;
             }
-        } else if ("admin".equals(role)) {
-             System.out.println("REGISTER_VIEW: Đăng ký cho vai trò admin.");
-             // không cần thông tin cá nhân cho admin trong ví dụ này
+            return this;
+        }
+    }
+
+    private static class BigDecimalSpinnerModel extends SpinnerNumberModel {
+        private static final long serialVersionUID = 1L;
+        public BigDecimalSpinnerModel(BigDecimal value, Comparable<BigDecimal> minimum, Comparable<BigDecimal> maximum, BigDecimal stepSize) {
+            super(value, minimum, maximum, stepSize);
         }
 
-        System.out.println("REGISTER_VIEW: Chuẩn bị gọi RegisterController.handleRegister với Username: " + username + ", Role: " + role);
-        RegisterController controller = new RegisterController();
-        
-        // Gọi controller với các tham số đã được xử lý
-        boolean success = controller.handleRegister(username, password, role, hoTen, sdt, ngaySinhDate, luongDouble);
+        @Override
+        public Object getNextValue() {
+            BigDecimal currentValue = (BigDecimal) super.getValue();
+            BigDecimal step = (BigDecimal) getStepSize();
+            BigDecimal nextValue = currentValue.add(step);
+            BigDecimal max = (BigDecimal) getMaximum();
+            if (max != null && max.compareTo(nextValue) < 0) {
+                return getMaximum(); // Trả về giá trị max thay vì null
+            }
+            return nextValue;
+        }
 
-        if (success) {
-            JOptionPane.showMessageDialog(this, "Đăng ký tài khoản thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-            System.out.println("REGISTER_VIEW: Đăng ký thành công cho user: " + username);
-            this.dispose(); // Đóng cửa sổ đăng ký
-        } else {
-            // Thông báo lỗi chung, chi tiết lỗi đã được log ở controller
-            JOptionPane.showMessageDialog(this, "Đăng ký thất bại! Tên đăng nhập có thể đã tồn tại, hoặc có lỗi khác. Vui lòng kiểm tra console log.", "Lỗi đăng ký", JOptionPane.ERROR_MESSAGE);
-            System.err.println("REGISTER_VIEW: Đăng ký thất bại cho user: " + username);
+        @Override
+        public Object getPreviousValue() {
+            BigDecimal currentValue = (BigDecimal) super.getValue();
+            BigDecimal step = (BigDecimal) getStepSize();
+            BigDecimal previousValue = currentValue.subtract(step);
+            BigDecimal min = (BigDecimal) getMinimum();
+            if (min != null && min.compareTo(previousValue) > 0) {
+                return getMinimum(); // Trả về giá trị min thay vì null
+            }
+            return previousValue;
         }
     }
 }

@@ -1,204 +1,167 @@
 package query;
-
-import dbConnection.DBConnection; 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import dbConnection.DBConnection;
 import model.DoiTra;
-import java.sql.Connection;
-import java.sql.Date; // Dùng java.sql.Date
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement; // Cho RETURN_GENERATED_KEYS
-import java.time.LocalDate; // Model dùng LocalDate
+import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DoiTraQuery {
     private static boolean kiemTraMaDonHangTonTai(int maDonHang, Connection conn) throws SQLException {
         String sql = "SELECT 1 FROM hoadonxuat WHERE mahdx = ?";
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
-        try {
-            stmt = conn.prepareStatement(sql);
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, maDonHang);
-            rs = stmt.executeQuery();
-            return rs.next();
-        } catch (SQLException e) {
-            System.err.println("DOITRA_QUERY (kiemTraMaDonHangTonTai): Lỗi kiểm tra mã đơn hàng '" + maDonHang + "': " + e.getMessage());
-            throw e; // Ném lại lỗi để tầng gọi xử lý
-        } finally {
-            if (rs != null) try { rs.close(); } catch (SQLException e) { e.printStackTrace(); }
-            if (stmt != null) try { stmt.close(); } catch (SQLException e) { e.printStackTrace(); }
-            // Không đóng conn ở đây nếu nó được truyền vào
-        }
-    }
-     private static boolean kiemTraMaDonHangTonTai(int maDonHang) {
-        String sql = "SELECT 1 FROM hoadonxuat WHERE mahdx = ?"; // Tên cột MaHDX là int
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, maDonHang); // Sử dụng setInt
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();
             }
-        } catch (SQLException e) {
-            System.err.println("Lỗi kiểm tra mã đơn hàng '" + maDonHang + "': " + e.getMessage());
-            return false;
         }
     }
-
-
-    /**
-     * Thêm một yêu cầu đổi trả mới. idDT là tự sinh.
-     * Phương thức này tự quản lý Connection.
-     * @param dt Đối tượng DoiTra (không cần idDT ban đầu).
-     * @return idDT (Integer) tự sinh nếu thành công, hoặc null nếu thất bại hoặc mã đơn hàng không hợp lệ.
-     */
+    private static final Logger logger = Logger.getLogger(DoiTraQuery.class.getName());
     public static Integer themYeuCauDoiTraAndGetId(DoiTra dt) {
         if (dt == null) {
-            System.err.println("DOITRA_QUERY (themAndGetId): Lỗi thêm yêu cầu đổi trả: Đối tượng DoiTra là null.");
+            System.err.println("DOITRA_QUERY (themAndGetId): Lỗi: Đối tượng DoiTra là null.");
             return null;
         }
+        String sql = "INSERT INTO doitra (maspcuthe, makh, mahdx, ngaydoitra, lydo, trangthai) VALUES (?, ?, ?, ?, ?, ?)";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        ResultSet generatedKeys = null;
-
-        try {
-            conn = DBConnection.getConnection(); // Mở connection mới
-            conn.setAutoCommit(false); // Bắt đầu transaction (nếu cần cho kiểm tra và insert)
-
-            // Kiểm tra MaDonHang (int) có tồn tại không
-            if (!kiemTraMaDonHangTonTai(dt.getMaDonHang(), conn)) { // Truyền connection vào
-                System.err.println("DOITRA_QUERY (themAndGetId): Từ chối thêm yêu cầu đổi trả: Mã đơn hàng '" + dt.getMaDonHang() + "' không tồn tại.");
-                conn.rollback(); // Rollback nếu mã đơn hàng không tồn tại
-                return null; // Hoặc throw new IllegalArgumentException("Mã đơn hàng không tồn tại.");
+            conn.setAutoCommit(false); 
+            if (!kiemTraMaDonHangTonTai(dt.getMaDonHang(), conn)) {
+                System.err.println("DOITRA_QUERY (themAndGetId): Mã đơn hàng '" + dt.getMaDonHang() + "' không tồn tại.");
+                conn.rollback();
+                return null;
             }
-
-            // iddt là SERIAL, không cần truyền vào
-            String sql = "INSERT INTO doitra (makh, masp, madonhang, ngaydoitra, lydo, trangthai) VALUES (?, ?, ?, ?, ?, ?)";
-            stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-
-            stmt.setInt(1, dt.getMaKH());
-            stmt.setInt(2, dt.getMaSP());
-            stmt.setInt(3, dt.getMaDonHang());
-            stmt.setDate(4, Date.valueOf(dt.getNgayDoiTra())); // Chuyển LocalDate sang java.sql.Date
+            stmt.setString(1, dt.getMaSPCuThe()); // Cột 1 là MaSPCuThe (VARCHAR)
+            stmt.setInt(2, dt.getMaKH());         // Cột 2 là MaKH (INT)
+            stmt.setInt(3, dt.getMaDonHang());    // Cột 3 là MaHDX (INT)
+            stmt.setDate(4, Date.valueOf(dt.getNgayDoiTra()));
             stmt.setString(5, dt.getLyDo());
             stmt.setString(6, dt.getTrangThai());
 
             int affectedRows = stmt.executeUpdate();
             if (affectedRows == 0) {
-                System.err.println("DOITRA_QUERY (themAndGetId): Chèn yêu cầu đổi trả thất bại.");
                 conn.rollback();
                 return null;
             }
 
-            generatedKeys = stmt.getGeneratedKeys();
-            if (generatedKeys.next()) {
-                int generatedId = generatedKeys.getInt(1);
-                conn.commit(); // Commit transaction
-                System.out.println("DOITRA_QUERY (themAndGetId): Chèn yêu cầu thành công với IDDT: " + generatedId);
-                return generatedId;
-            } else {
-                System.err.println("DOITRA_QUERY (themAndGetId): Chèn thành công nhưng không lấy được ID.");
-                conn.rollback();
-                return null; // Hoặc throw new SQLException("Không lấy được ID tự sinh sau khi chèn.");
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    int generatedId = generatedKeys.getInt(1);
+                    conn.commit(); // Commit transaction thành công
+                    return generatedId;
+                } else {
+                    conn.rollback();
+                    return null;
+                }
             }
 
         } catch (SQLException e) {
             System.err.println("DOITRA_QUERY (themAndGetId): Lỗi SQL khi thêm yêu cầu đổi/trả: " + e.getMessage());
             e.printStackTrace();
-            if (conn != null) {
-                try {
-                    conn.rollback();
-                } catch (SQLException ex) {
-                    System.err.println("DOITRA_QUERY (themAndGetId): Lỗi khi rollback: " + ex.getMessage());
-                }
-            }
             return null;
-        } finally {
-            if (generatedKeys != null) try { generatedKeys.close(); } catch (SQLException e) { e.printStackTrace(); }
-            if (stmt != null) try { stmt.close(); } catch (SQLException e) { e.printStackTrace(); }
-            if (conn != null) {
-                try {
-                    conn.setAutoCommit(true); // Trả lại trạng thái auto-commit
-                    conn.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
         }
     }
 
     public static List<DoiTra> getAllDoiTra() {
         List<DoiTra> list = new ArrayList<>();
-        String sql = "SELECT iddt, makh, masp, madonhang, ngaydoitra, lydo, trangthai FROM doitra ORDER BY ngaydoitra DESC, iddt DESC";
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
-        try {
-            conn = DBConnection.getConnection();
-            stmt = conn.prepareStatement(sql);
-            rs = stmt.executeQuery();
+        String sql = "SELECT iddt, maspcuthe, makh, mahdx, ngaydoitra, lydo, trangthai FROM doitra ORDER BY ngaydoitra DESC, iddt DESC";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                LocalDate ngayDoiTra = null;
-                Date sqlDateDoiTra = rs.getDate("ngaydoitra");
-                if (sqlDateDoiTra != null) {
-                    ngayDoiTra = sqlDateDoiTra.toLocalDate();
-                }
-
-                DoiTra dt = new DoiTra(
+                LocalDate ngayDoiTra = rs.getDate("ngaydoitra") != null ? rs.getDate("ngaydoitra").toLocalDate() : null;
+                list.add(new DoiTra(
                         rs.getInt("iddt"),
+                        rs.getString("maspcuthe"),
                         rs.getInt("makh"),
-                        rs.getInt("masp"),
-                        rs.getInt("madonhang"),
+                        rs.getInt("mahdx"),
                         ngayDoiTra,
                         rs.getString("lydo"),
                         rs.getString("trangthai")
-                );
-                list.add(dt);
+                ));
             }
         } catch (SQLException e) {
-            System.err.println("DOITRA_QUERY (getAllDoiTra): Lỗi khi lấy danh sách đổi trả: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            if (rs != null) try { rs.close(); } catch (SQLException e) { e.printStackTrace(); }
-            if (stmt != null) try { stmt.close(); } catch (SQLException e) { e.printStackTrace(); }
-            if (conn != null) try { conn.close(); } catch (SQLException e) { e.printStackTrace(); }
+            logger.log(Level.SEVERE, "Lỗi khi lấy danh sách đổi trả.", e);
         }
         return list;
     }
 
-    /**
-     * Cập nhật trạng thái của một yêu cầu đổi trả.
-     * @param idDT Mã yêu cầu đổi trả (int).
-     * @param trangThaiMoi Trạng thái mới (String).
-     * @return true nếu cập nhật thành công, false nếu không hoặc có lỗi.
-     */
     public static boolean capNhatTrangThaiDoiTra(int idDT, String trangThaiMoi) {
         String sql = "UPDATE doitra SET trangthai = ? WHERE iddt = ?";
-        System.out.println("DOITRA_QUERY (capNhatTrangThai): IDDT=" + idDT + ", TrangThaiMoi=" + trangThaiMoi);
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        try {
-            conn = DBConnection.getConnection();
-            stmt = conn.prepareStatement(sql);
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, trangThaiMoi);
             stmt.setInt(2, idDT);
             int affectedRows = stmt.executeUpdate();
-            if (affectedRows > 0) {
-                System.out.println("DOITRA_QUERY (capNhatTrangThai): Cap nhat trang thai thanh cong cho IDDT " + idDT);
-                return true;
-            } else {
-                System.err.println("DOITRA_QUERY (capNhatTrangThai): Khong tim thay IDDT " + idDT + " de cap nhat hoac trang thai khong thay doi.");
-                return false; // Không có hàng nào được cập nhật
-            }
+            return affectedRows > 0;
         } catch (SQLException e) {
-            System.err.println("DOITRA_QUERY (capNhatTrangThai): Lỗi SQL khi cập nhật trạng thái cho IDDT " + idDT + ": " + e.getMessage());
+            System.err.println("DOITRA_QUERY (capNhatTrangThai): Lỗi SQL: " + e.getMessage());
             e.printStackTrace();
-            return false; // Lỗi SQL
+            return false;
+        }
+    }
+    public static boolean processReturnRequest(int idDT, String maSPCuThe, String newStatus) {
+        Connection conn = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false); // Bắt đầu transaction
+
+            // Bước 1: Luôn cập nhật trạng thái của yêu cầu trong bảng doitra
+            String updateDoiTraSql = "UPDATE doitra SET trangthai = ? WHERE iddt = ?";
+            try (PreparedStatement stmtDoiTra = conn.prepareStatement(updateDoiTraSql)) {
+                stmtDoiTra.setString(1, newStatus);
+                stmtDoiTra.setInt(2, idDT);
+                if (stmtDoiTra.executeUpdate() == 0) {
+                    throw new SQLException("Không tìm thấy yêu cầu đổi trả với ID: " + idDT + " để cập nhật.");
+                }
+            }
+             logger.info("Đã cập nhật trạng thái bảng doitra cho ID " + idDT + " thành " + newStatus);
+
+
+            // Bước 2: Nếu yêu cầu được "Duyệt", cập nhật thêm trạng thái của sản phẩm
+            // Giả sử trạng thái mới của sản phẩm trả về là 'Da Tra Hang'
+            if ("Đã duyệt".equalsIgnoreCase(newStatus)) {
+                String updateSPCTSql = "UPDATE sanphamcuthe SET trangthai = 'Da Tra Hang' WHERE maspcuthe = ?";
+                try (PreparedStatement stmtSPCT = conn.prepareStatement(updateSPCTSql)) {
+                    stmtSPCT.setString(1, maSPCuThe);
+                    if (stmtSPCT.executeUpdate() == 0) {
+                         throw new SQLException("Không tìm thấy sản phẩm cụ thể với mã: " + maSPCuThe + " để cập nhật.");
+                    }
+                }
+                logger.info("Đã cập nhật trạng thái bảng sanphamcuthe cho MaSP: " + maSPCuThe + " thành 'Da Tra Hang'");
+            }
+
+            // Nếu tất cả các bước trên thành công, commit transaction
+            conn.commit();
+            logger.info("Transaction xử lý yêu cầu đổi trả ID " + idDT + " thành công.");
+            return true;
+
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Lỗi SQL trong quá trình xử lý yêu cầu ID " + idDT + ". Đang rollback...", e);
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                    logger.info("Rollback transaction thành công.");
+                } catch (SQLException ex) {
+                    logger.log(Level.SEVERE, "Lỗi nghiêm trọng khi rollback.", ex);
+                }
+            }
+            return false;
         } finally {
-            if (stmt != null) try { stmt.close(); } catch (SQLException e) { e.printStackTrace(); }
-            if (conn != null) try { conn.close(); } catch (SQLException e) { e.printStackTrace(); }
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true); // Trả lại trạng thái mặc định cho connection pool
+                    conn.close();
+                } catch (SQLException e) {
+                    logger.log(Level.SEVERE, "Lỗi khi đóng kết nối.", e);
+                }
+            }
         }
     }
 }

@@ -1,18 +1,27 @@
 package model;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
-
-public class TraGop { // Đổi tên lớp nếu bạn muốn (ví dụ: PhieuTraGop)
-    private int maPhieuTG; // Đổi sang int
-    private int maHDX; // Đổi sang int
+import java.util.Objects;
+public class TraGop {
+    private int maPhieuTG;
+    private int maHDX;
     private int soThang;
-    private double laiSuat; // Cân nhắc BigDecimal
-    private double tienGoc; // Cân nhắc BigDecimal
+    private BigDecimal laiSuat;
+    private BigDecimal tienGoc;
     private LocalDate ngayBatDau;
     private boolean daThanhToan;
-
-    // Constructor khi đọc từ DB
-    public TraGop(int maPhieuTG, int maHDX, int soThang, double laiSuat, double tienGoc, LocalDate ngayBatDau, boolean daThanhToan) {
+    public TraGop() {
+    }
+    public TraGop(int maHDX, int soThang, BigDecimal laiSuat, BigDecimal tienGoc, LocalDate ngayBatDau, boolean daThanhToan) {
+        this.maHDX = maHDX;
+        this.soThang = soThang;
+        this.laiSuat = laiSuat;
+        this.tienGoc = tienGoc;
+        this.ngayBatDau = ngayBatDau;
+        this.daThanhToan = daThanhToan;
+    }
+    public TraGop(int maPhieuTG, int maHDX, int soThang, BigDecimal laiSuat, BigDecimal tienGoc, LocalDate ngayBatDau, boolean daThanhToan) {
         this.maPhieuTG = maPhieuTG;
         this.maHDX = maHDX;
         this.soThang = soThang;
@@ -21,47 +30,89 @@ public class TraGop { // Đổi tên lớp nếu bạn muốn (ví dụ: PhieuTr
         this.ngayBatDau = ngayBatDau;
         this.daThanhToan = daThanhToan;
     }
+    public int getMaPhieuTG() {
+        return maPhieuTG;
+    }
 
-    // Constructor khi tạo mới (maPhieuTG tự sinh)
-    public TraGop(int maHDX, int soThang, double laiSuat, double tienGoc, LocalDate ngayBatDau, boolean daThanhToan) {
+    public void setMaPhieuTG(int maPhieuTG) {
+        this.maPhieuTG = maPhieuTG;
+    }
+
+    public int getMaHDX() {
+        return maHDX;
+    }
+
+    public void setMaHDX(int maHDX) {
         this.maHDX = maHDX;
+    }
+
+    public int getSoThang() {
+        return soThang;
+    }
+
+    public void setSoThang(int soThang) {
         this.soThang = soThang;
+    }
+
+    public BigDecimal getLaiSuat() {
+        return laiSuat;
+    }
+
+    public void setLaiSuat(BigDecimal laiSuat) {
         this.laiSuat = laiSuat;
+    }
+
+    public BigDecimal getTienGoc() {
+        return tienGoc;
+    }
+
+    public void setTienGoc(BigDecimal tienGoc) {
         this.tienGoc = tienGoc;
+    }
+
+    public LocalDate getNgayBatDau() {
+        return ngayBatDau;
+    }
+
+    public void setNgayBatDau(LocalDate ngayBatDau) {
         this.ngayBatDau = ngayBatDau;
+    }
+
+    public boolean isDaThanhToan() {
+        return daThanhToan;
+    }
+
+    public void setDaThanhToan(boolean daThanhToan) {
         this.daThanhToan = daThanhToan;
     }
-    
-    public TraGop() {
-        // Constructor rỗng
+
+
+    // --- Ghi đè các phương thức của lớp Object ---
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        TraGop that = (TraGop) o;
+        if (maPhieuTG == 0) return false;
+        return maPhieuTG == that.maPhieuTG;
     }
 
-    // Getters
-    public int getMaPhieuTG() { return maPhieuTG; }
-    public int getMaHDX() { return maHDX; }
-    public int getSoThang() { return soThang; }
-    public double getLaiSuat() { return laiSuat; }
-    public double getTienGoc() { return tienGoc; }
-    public LocalDate getNgayBatDau() { return ngayBatDau; }
-    public boolean isDaThanhToan() { return daThanhToan; } 
-    public void setMaPhieuTG(int maPhieuTG) { this.maPhieuTG = maPhieuTG; }
-    public void setMaHDX(int maHDX) { this.maHDX = maHDX; }
-    public void setSoThang(int soThang) { this.soThang = soThang; }
-    public void setLaiSuat(double laiSuat) { this.laiSuat = laiSuat; }
-    public void setTienGoc(double tienGoc) { this.tienGoc = tienGoc; }
-    public void setNgayBatDau(LocalDate ngayBatDau) { this.ngayBatDau = ngayBatDau; }
-    public void setDaThanhToan(boolean daThanhToan) { this.daThanhToan = daThanhToan; }
+    @Override
+    public int hashCode() {
+        return Objects.hash(maPhieuTG);
+    }
 
     @Override
     public String toString() {
-        return "TraGop{" +
-               "maPhieuTG=" + maPhieuTG +
-               ", maHDX=" + maHDX +
-               ", soThang=" + soThang +
-               ", laiSuat=" + laiSuat +
-               ", tienGoc=" + tienGoc +
-               ", ngayBatDau=" + ngayBatDau +
-               ", daThanhToan=" + daThanhToan +
-               '}';
+        return "PhieuTraGop{" +
+                "maPhieuTG=" + maPhieuTG +
+                ", maHDX=" + maHDX +
+                ", soThang=" + soThang +
+                ", laiSuat=" + laiSuat +
+                ", tienGoc=" + tienGoc +
+                ", ngayBatDau=" + ngayBatDau +
+                ", daThanhToan=" + daThanhToan +
+                '}';
     }
 }

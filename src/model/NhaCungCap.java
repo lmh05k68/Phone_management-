@@ -5,16 +5,12 @@ public class NhaCungCap {
     private String tenNCC;
     private String diaChi;
     private String sdtNCC;
-
-    // Constructor khi đọc từ DB (có MaNCC)
     public NhaCungCap(int maNCC, String tenNCC, String diaChi, String sdtNCC) {
         this.maNCC = maNCC;
         this.tenNCC = tenNCC;
         this.diaChi = diaChi;
         this.sdtNCC = sdtNCC;
     }
-
-    // Constructor khi tạo mới (MaNCC tự sinh)
     public NhaCungCap(String tenNCC, String diaChi, String sdtNCC) {
         this.tenNCC = tenNCC;
         this.diaChi = diaChi;

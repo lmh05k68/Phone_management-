@@ -1,4 +1,5 @@
-package view.customer; 
+package view.customer;
+
 import model.KhachHang;
 import query.KhachHangQuery;
 
@@ -13,10 +14,15 @@ public class UpdateCustomerProfileView extends JFrame {
     private JLabel lblMaKHValue, lblSoDiemValue;
     private JButton btnCapNhat, btnHuy;
 
-    public UpdateCustomerProfileView(int maKH) {
+    // Callback để thông báo cho cửa sổ cha rằng đã có cập nhật
+    private Runnable onUpdateSuccess;
+
+    public UpdateCustomerProfileView(int maKH, Runnable onUpdateSuccess) {
         this.maKH = maKH;
+        this.onUpdateSuccess = onUpdateSuccess; // Lưu callback
+
         setTitle("Cập Nhật Thông Tin Cá Nhân - KH: " + maKH);
-        setSize(450, 300); // Kích thước phù hợp
+        setSize(450, 320); // Tăng chiều cao một chút cho đẹp
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setResizable(false);
@@ -30,12 +36,12 @@ public class UpdateCustomerProfileView extends JFrame {
         mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
         JLabel lblTitle = new JLabel("Cập Nhật Thông Tin", SwingConstants.CENTER);
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 20));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
         mainPanel.add(lblTitle, BorderLayout.NORTH);
 
         JPanel formPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(8, 5, 8, 5); // Tăng khoảng cách dọc
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
@@ -85,7 +91,7 @@ public class UpdateCustomerProfileView extends JFrame {
         mainPanel.add(formPanel, BorderLayout.CENTER);
 
         // Buttons
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
         btnCapNhat = createStyledButton("Lưu Thay Đổi", new Color(40, 167, 69));
         btnHuy = createStyledButton("Hủy", new Color(108, 117, 125));
 
@@ -106,10 +112,10 @@ public class UpdateCustomerProfileView extends JFrame {
             lblMaKHValue.setText(String.valueOf(kh.getMaKH()));
             tfHoTen.setText(kh.getHoTen());
             tfSdtKH.setText(kh.getSdtKH());
-            lblSoDiemValue.setText(String.valueOf(kh.getSoDiemTichLuy()) + " điểm");
+            lblSoDiemValue.setText(String.format("%,d điểm", kh.getSoDiemTichLuy()));
         } else {
             JOptionPane.showMessageDialog(this, "Không thể tải thông tin khách hàng.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            dispose(); // Đóng cửa sổ nếu không tải được
+            dispose();
         }
     }
 
@@ -121,20 +127,19 @@ public class UpdateCustomerProfileView extends JFrame {
             JOptionPane.showMessageDialog(this, "Họ tên và Số điện thoại không được để trống.", "Lỗi Nhập Liệu", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        // Thêm kiểm tra định dạng SĐT nếu cần
-
-        KhachHang khHienTai = KhachHangQuery.getKhachHangById(this.maKH); // Lấy lại để có điểm hiện tại
-        if (khHienTai == null) {
-            JOptionPane.showMessageDialog(this, "Lỗi: Không tìm thấy thông tin khách hàng để cập nhật.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        KhachHang khUpdated = new KhachHang(this.maKH, hoTenMoi, sdtKHMoi, khHienTai.getSoDiemTichLuy());
-
-        if (KhachHangQuery.capNhatThongTinCoBan(khUpdated)) { // Gọi phương thức Query tự quản lý connection
+        KhachHang khUpdated = new KhachHang();
+        khUpdated.setMaKH(this.maKH);
+        khUpdated.setHoTen(hoTenMoi);
+        khUpdated.setSdtKH(sdtKHMoi);
+        if (KhachHangQuery.capNhatThongTinCoBan(khUpdated)) {
             JOptionPane.showMessageDialog(this, "Cập nhật thông tin thành công!", "Thành Công", JOptionPane.INFORMATION_MESSAGE);
-            dispose(); 
+            if (onUpdateSuccess != null) {
+                onUpdateSuccess.run();
+            }
+
+            dispose(); // Đóng cửa sổ sau khi thành công
         } else {
-            JOptionPane.showMessageDialog(this, "Cập nhật thông tin thất bại.", "Thất Bại", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Cập nhật thông tin thất bại.\nCó thể do số điện thoại đã tồn tại.", "Thất Bại", JOptionPane.ERROR_MESSAGE);
         }
     }
 

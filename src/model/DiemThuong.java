@@ -2,69 +2,59 @@ package model;
 
 import java.time.LocalDate;
 
+/**
+ * Lớp này đại diện cho một giao dịch điểm thưởng trong bảng DiemThuong.
+ * Nó ánh xạ 1-1 với cấu trúc của bảng trong CSDL.
+ */
 public class DiemThuong {
-    private int maTichDiem; // Đổi sang int
-    private int maKH; // Đổi sang int
-    // Cân nhắc bỏ TenKH và SdtKH nếu có thể lấy từ KhachHang qua MaKH
-    private String tenKH; // Giữ lại nếu bạn muốn lưu snapshot tại thời điểm tích điểm
-    private int maDonHang; // Đổi sang int
+    private int maTichDiem;
+    private int maKH;
+    private int maHDX; // Đã đổi tên từ maDonHang để khớp với CSDL
     private int soDiem;
     private LocalDate ngayTichLuy;
-    private String sdtKH; // Giữ lại nếu bạn muốn lưu snapshot
 
-    // Constructor khi đọc từ DB
-    public DiemThuong(int maTichDiem, int maKH, String tenKH, int maDonHang, int soDiem, LocalDate ngayTichLuy, String sdtKH) {
+    // Constructor để đọc dữ liệu từ CSDL (đã có maTichDiem)
+    public DiemThuong(int maTichDiem, int maKH, int maHDX, int soDiem, LocalDate ngayTichLuy) {
         this.maTichDiem = maTichDiem;
         this.maKH = maKH;
-        this.tenKH = tenKH;
-        this.maDonHang = maDonHang;
+        this.maHDX = maHDX;
         this.soDiem = soDiem;
         this.ngayTichLuy = ngayTichLuy;
-        this.sdtKH = sdtKH;
     }
 
-    // Constructor khi tạo mới (maTichDiem tự sinh)
-    public DiemThuong(int maKH, String tenKH, int maDonHang, int soDiem, LocalDate ngayTichLuy, String sdtKH) {
+    // Constructor để tạo một giao dịch mới (chưa có maTichDiem)
+    public DiemThuong(int maKH, int maHDX, int soDiem) {
         this.maKH = maKH;
-        this.tenKH = tenKH;
-        this.maDonHang = maDonHang;
+        this.maHDX = maHDX;
         this.soDiem = soDiem;
-        this.ngayTichLuy = ngayTichLuy;
-        this.sdtKH = sdtKH;
-    }
-    
-    public DiemThuong() {
-        // Constructor rỗng
+        this.ngayTichLuy = LocalDate.now(); // Tự động lấy ngày hiện tại
     }
 
-    // Getters
+    public DiemThuong() {
+    }
+
+    // --- Getters ---
     public int getMaTichDiem() { return maTichDiem; }
     public int getMaKH() { return maKH; }
-    public String getTenKH() { return tenKH; }
-    public int getMaDonHang() { return maDonHang; }
+    public int getMaHDX() { return maHDX; }
     public int getSoDiem() { return soDiem; }
     public LocalDate getNgayTichLuy() { return ngayTichLuy; }
-    public String getSdtKH() { return sdtKH; }
 
-    // Setters
+    // --- Setters ---
     public void setMaTichDiem(int maTichDiem) { this.maTichDiem = maTichDiem; }
     public void setMaKH(int maKH) { this.maKH = maKH; }
-    public void setTenKH(String tenKH) { this.tenKH = tenKH; }
-    public void setMaDonHang(int maDonHang) { this.maDonHang = maDonHang; }
+    public void setMaHDX(int maHDX) { this.maHDX = maHDX; }
     public void setSoDiem(int soDiem) { this.soDiem = soDiem; }
     public void setNgayTichLuy(LocalDate ngayTichLuy) { this.ngayTichLuy = ngayTichLuy; }
-    public void setSdtKH(String sdtKH) { this.sdtKH = sdtKH; }
 
     @Override
     public String toString() {
         return "DiemThuong{" +
                "maTichDiem=" + maTichDiem +
                ", maKH=" + maKH +
-               ", tenKH='" + tenKH + '\'' +
-               ", maDonHang=" + maDonHang +
+               ", maHDX=" + maHDX +
                ", soDiem=" + soDiem +
                ", ngayTichLuy=" + ngayTichLuy +
-               ", sdtKH='" + sdtKH + '\'' +
                '}';
     }
 }

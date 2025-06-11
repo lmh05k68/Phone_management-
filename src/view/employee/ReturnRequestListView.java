@@ -27,7 +27,7 @@ public class ReturnRequestListView extends JFrame {
         lblTitle.setHorizontalAlignment(SwingConstants.CENTER);
         lblTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
         mainPanel.add(lblTitle, BorderLayout.NORTH);
-        String[] columns = {"Mã YC (ID)", "Mã KH", "Mã SP", "Mã ĐH", "Ngày YC", "Lý Do", "Trạng Thái"};
+        String[] columns = {"Mã YC (ID)", "Mã KH", "Mã SP Cụ Thể", "Mã ĐH", "Ngày YC", "Lý Do", "Trạng Thái"};
         model = new DefaultTableModel(columns, 0) {
             private static final long serialVersionUID = 1L;
             @Override
@@ -75,12 +75,11 @@ public class ReturnRequestListView extends JFrame {
         tbl.setRowHeight(28);
         tbl.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tbl.getTableHeader().setReorderingAllowed(false);
-        tbl.setAutoCreateRowSorter(true); // Cho phép sắp xếp theo cột
-
+        tbl.setAutoCreateRowSorter(true);
         TableColumnModel columnModel = tbl.getColumnModel();
-        columnModel.getColumn(0).setPreferredWidth(80);  // Mã YC (ID)
+        columnModel.getColumn(0).setPreferredWidth(100);  // Mã YC (ID)
         columnModel.getColumn(1).setPreferredWidth(70);  // Mã KH
-        columnModel.getColumn(2).setPreferredWidth(70);  // Mã SP
+        columnModel.getColumn(2).setPreferredWidth(140);  // Mã SP
         columnModel.getColumn(3).setPreferredWidth(80);  // Mã ĐH
         columnModel.getColumn(4).setPreferredWidth(120); // Ngày YC
         columnModel.getColumn(5).setPreferredWidth(300); // Lý do (cho rộng hơn)
@@ -133,5 +132,13 @@ public class ReturnRequestListView extends JFrame {
     }
     public DefaultTableModel getModel() {
         return model;
+    }
+    public String getSelectedProductCode() {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow >= 0) {
+            Object codeObj = model.getValueAt(table.convertRowIndexToModel(selectedRow), 2);
+            return codeObj != null ? codeObj.toString() : null;
+        }
+        return null;
     }
 }

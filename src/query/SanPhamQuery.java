@@ -3,350 +3,210 @@ package query;
 import dbConnection.DBConnection;
 import model.SanPham;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class SanPhamQuery {
 
-    // Giữ nguyên: getAll() sẽ trả về danh sách sắp xếp theo tên (default)
-    public static List<SanPham> getAll() { // Đổi tên từ getAllSanPham() cho ngắn gọn
-        return getAllSanPhamOrderedByTenSP(true);
+    private static final Logger logger = Logger.getLogger(SanPhamQuery.class.getName());
+    public static List<SanPham> getAllWithTonKho() {
+        List<SanPham> dsSP = new ArrayList<>();
+        String sql = "SELECT " +
+                     "  sp.MaSP, sp.TenSP, sp.Mau, sp.GiaNiemYet, sp.NuocSX, sp.HangSX, " +
+                     "  COUNT(spct.MaSPCuThe) AS SoLuongTon " +
+                     "FROM SanPham sp " +
+                     "LEFT JOIN SanPhamCuThe spct ON sp.MaSP = spct.MaSP AND spct.TrangThai = 'Trong Kho' " +
+                     "GROUP BY sp.MaSP, sp.TenSP, sp.Mau, sp.GiaNiemYet, sp.NuocSX, sp.HangSX " +
+                     "ORDER BY sp.TenSP ASC";
+
+        try (Connection conn = DBConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                SanPham sp = new SanPham(
+                        rs.getInt("MaSP"),
+                        rs.getString("TenSP"),
+                        rs.getString("Mau"),
+                        rs.getBigDecimal("GiaNiemYet"),
+                        rs.getString("NuocSX"),
+                        rs.getString("HangSX")
+                );
+                sp.setSoLuongTon(rs.getInt("SoLuongTon"));
+                dsSP.add(sp);
+            }
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Lỗi khi lấy danh sách sản phẩm kèm tồn kho.", e);
+        }
+        return dsSP;
     }
 
-    // Phương thức này được gọi bởi getAll()
-    public static List<SanPham> getAllSanPhamOrderedByTenSP(boolean ascending) {
+    /**
+     * Lấy danh sách tất cả sản phẩm (không bao gồm tồn kho).
+     * @return Danh sách sản phẩm.
+     */
+    public static List<SanPham> getAll() {
         List<SanPham> dsSP = new ArrayList<>();
-        String sql = "SELECT masp, tensp, mau, dongia, nuocsx, hangsx, soluong FROM sanpham";
-        if (ascending) {
-            sql += " ORDER BY LOWER(tensp) ASC"; // Sắp xếp theo tên không phân biệt hoa thường
-        } else {
-            sql += " ORDER BY LOWER(tensp) DESC";
-        }
+        String sql = "SELECT MaSP, TenSP, Mau, GiaNiemYet, NuocSX, HangSX FROM SanPham ORDER BY TenSP ASC";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 dsSP.add(new SanPham(
-                        rs.getInt("masp"),
-                        rs.getString("tensp"),
-                        rs.getString("mau"),
-                        rs.getDouble("dongia"),
-                        rs.getString("nuocsx"),
-                        rs.getString("hangsx"),
-                        rs.getInt("soluong")
+                        rs.getInt("MaSP"),
+                        rs.getString("TenSP"),
+                        rs.getString("Mau"),
+                        rs.getBigDecimal("GiaNiemYet"),
+                        rs.getString("NuocSX"),
+                        rs.getString("HangSX")
                 ));
             }
         } catch (SQLException e) {
-            System.err.println("SP_QUERY (getAllSanPhamOrderedByTenSP): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Lỗi khi lấy danh sách sản phẩm.", e);
         }
         return dsSP;
     }
 
-    // Phương thức này có thể được dùng nếu ManageProduct muốn sắp xếp theo MaSP từ Query
-    public static List<SanPham> getAllSanPhamOrderedByMaSP(boolean ascending) {
-        List<SanPham> dsSP = new ArrayList<>();
-        String sql = "SELECT masp, tensp, mau, dongia, nuocsx, hangsx, soluong FROM sanpham";
-        if (ascending) {
-            sql += " ORDER BY masp ASC";
-        } else {
-            sql += " ORDER BY masp DESC";
-        }
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                dsSP.add(new SanPham(
-                        rs.getInt("masp"),
-                        rs.getString("tensp"),
-                        rs.getString("mau"),
-                        rs.getDouble("dongia"),
-                        rs.getString("nuocsx"),
-                        rs.getString("hangsx"),
-                        rs.getInt("soluong")
-                ));
-            }
-        } catch (SQLException e) {
-            System.err.println("SP_QUERY (getAllSanPhamOrderedByMaSP): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return dsSP;
-    }
-
-
-    public static List<SanPham> getAllSanPhamActiving() {
-        List<SanPham> dsSP = new ArrayList<>();
-        String sql = "SELECT masp, tensp, mau, dongia, nuocsx, hangsx, soluong FROM sanpham WHERE soluong > 0 ORDER BY LOWER(tensp) ASC";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                 dsSP.add(new SanPham(
-                        rs.getInt("masp"),
-                        rs.getString("tensp"),
-                        rs.getString("mau"),
-                        rs.getDouble("dongia"),
-                        rs.getString("nuocsx"),
-                        rs.getString("hangsx"),
-                        rs.getInt("soluong")
-                ));
-            }
-        } catch (SQLException e) {
-            System.err.println("SP_QUERY (getAllActiving): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return dsSP;
-    }
-
-    public static List<SanPham> searchSanPhamByTen(String keyword) {
-        List<SanPham> dsSP = new ArrayList<>();
-        String sql = "SELECT masp, tensp, mau, dongia, nuocsx, hangsx, soluong FROM sanpham WHERE LOWER(tensp) ILIKE LOWER(?) ORDER BY LOWER(tensp) ASC";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, "%" + keyword.trim() + "%");
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    dsSP.add(new SanPham(
-                        rs.getInt("masp"),
-                        rs.getString("tensp"),
-                        rs.getString("mau"),
-                        rs.getDouble("dongia"),
-                        rs.getString("nuocsx"),
-                        rs.getString("hangsx"),
-                        rs.getInt("soluong")
-                    ));
-                }
-            }
-        } catch (SQLException e) {
-            System.err.println("SP_QUERY (searchByTen): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return dsSP;
-    }
-
-    public static List<SanPham> filterSanPhamByHangSX(String hangSX) {
-        List<SanPham> dsSP = new ArrayList<>();
-        String sql = "SELECT masp, tensp, mau, dongia, nuocsx, hangsx, soluong FROM sanpham WHERE hangsx = ? ORDER BY LOWER(tensp) ASC";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, hangSX);
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                     dsSP.add(new SanPham(
-                        rs.getInt("masp"),
-                        rs.getString("tensp"),
-                        rs.getString("mau"),
-                        rs.getDouble("dongia"),
-                        rs.getString("nuocsx"),
-                        rs.getString("hangsx"),
-                        rs.getInt("soluong")
-                    ));
-                }
-            }
-        } catch (SQLException e) {
-            System.err.println("SP_QUERY (filterByHangSX): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return dsSP;
-    }
-
-    public static int getSoLuongTonKho(int maSP, Connection conn) throws SQLException {
-        String sql = "SELECT soluong FROM sanpham WHERE masp = ?";
-        if (conn == null) {
-            throw new SQLException("Connection không được null để lấy số lượng tồn kho trong transaction.");
-        }
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, maSP);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("soluong");
-                } else {
-                    System.err.println("SP_QUERY (getSoLuongTonKho): Không tìm thấy sản phẩm với mã: " + maSP + " hoặc không có thông tin tồn kho.");
-                    return -1; // Hoặc ném một exception tùy chỉnh
-                }
-            }
-        }
-    }
-
-    public static boolean updateSoLuong(int maSP, int soLuongThayDoi, Connection conn) throws SQLException {
-        if (conn == null) {
-            throw new SQLException("Connection không được null cho thao tác update số lượng trong transaction.");
-        }
-        String sql;
-        if (soLuongThayDoi < 0) {
-            sql = "UPDATE sanpham SET soluong = soluong + ? WHERE masp = ? AND soluong >= ?";
-        } else {
-            sql = "UPDATE sanpham SET soluong = soluong + ? WHERE masp = ?";
-        }
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, soLuongThayDoi);
-            stmt.setInt(2, maSP);
-            if (soLuongThayDoi < 0) {
-                stmt.setInt(3, -soLuongThayDoi);
-            }
-            int affectedRows = stmt.executeUpdate();
-            if (affectedRows == 0 && soLuongThayDoi < 0) {
-                 System.err.println("SP_QUERY (updateSoLuong): Cập nhật số lượng thất bại cho MaSP: " + maSP +
-                                    " (giảm). Nguyên nhân có thể: SP không tồn tại, hoặc không đủ tồn kho.");
-            } else if (affectedRows == 0 && soLuongThayDoi >= 0){
-                 System.err.println("SP_QUERY (updateSoLuong): Cập nhật số lượng thất bại cho MaSP: " + maSP +
-                                    " (tăng/không đổi). SP có thể không tồn tại.");
-            }
-            return affectedRows > 0;
-        }
-    }
-
-    public static boolean tangSoLuong(int maSP, int soLuongTangThem, Connection conn) throws SQLException {
-        if (conn == null) {
-            throw new SQLException("Connection không được null cho thao tác tăng số lượng.");
-        }
-        if (soLuongTangThem < 0) {
-            System.err.println("SP_QUERY (tangSoLuong): Số lượng tăng thêm không nên âm: " + soLuongTangThem);
-            return false; // Hoặc throw new IllegalArgumentException
-        }
-        String sql = "UPDATE sanpham SET soluong = soluong + ? WHERE masp = ?";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, soLuongTangThem);
-            stmt.setInt(2, maSP);
-            int affectedRows = stmt.executeUpdate();
-            if (affectedRows == 0) {
-                System.err.println("SP_QUERY (tangSoLuong): Không tìm thấy MaSP " + maSP + " để tăng số lượng hoặc số lượng không đổi.");
-            }
-            return affectedRows > 0;
-        }
-    }
-
-    public static boolean giamSoLuongKhiBan(int maSP, int soLuongGiam, Connection conn) throws SQLException {
-        if (conn == null) {
-            throw new SQLException("Connection không được null cho thao tác giảm số lượng.");
-        }
-        if (soLuongGiam <= 0) { // Số lượng bán phải dương
-            System.err.println("SP_QUERY (giamSoLuongKhiBan): Số lượng giảm phải lớn hơn 0: " + soLuongGiam);
-            return false; // Hoặc throw new IllegalArgumentException
-        }
-        String sql = "UPDATE sanpham SET soluong = soluong - ? WHERE masp = ? AND soluong >= ?";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, soLuongGiam);
-            stmt.setInt(2, maSP);
-            stmt.setInt(3, soLuongGiam); // Đảm bảo tồn kho ít nhất bằng số lượng giảm
-            int affectedRows = stmt.executeUpdate();
-            if (affectedRows == 0) {
-                System.err.println("SP_QUERY (giamSoLuongKhiBan): Cập nhật số lượng thất bại cho MaSP: " + maSP +
-                                   ". Nguyên nhân: SP không tồn tại, hoặc không đủ tồn kho.");
-            }
-            return affectedRows > 0;
-        }
-    }
-
-
-    public static boolean updateSanPham(SanPham sp) {
-        String sql = "UPDATE sanpham SET tensp = ?, mau = ?, dongia = ?, nuocsx = ?, hangsx = ?, soluong = ? WHERE masp = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, sp.getTenSP());
-            stmt.setString(2, sp.getMau());
-            stmt.setDouble(3, sp.getDonGia());
-            stmt.setString(4, sp.getNuocSX());
-            stmt.setString(5, sp.getHangSX());
-            stmt.setInt(6, sp.getSoLuong());
-            stmt.setInt(7, sp.getMaSP());
-            return stmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("SP_QUERY (updateSanPham): Lỗi SQL cho MaSP " + sp.getMaSP() + ": " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    public static boolean deleteSanPham(int maSP) {
-        String sql = "DELETE FROM sanpham WHERE masp = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, maSP);
-            return stmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("SP_QUERY (deleteSanPham): Lỗi SQL cho MaSP " + maSP + ": " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
-    }
-
+    /**
+     * Thêm một sản phẩm mới vào CSDL và trả về ID được tạo tự động.
+     * @param sp Đối tượng SanPham chứa thông tin cần thêm.
+     * @return ID của sản phẩm mới nếu thành công, ngược lại trả về null.
+     */
     public static Integer insertSanPhamAndGetId(SanPham sp) {
-        // MaSP là SERIAL, không cần truyền vào
-        String sql = "INSERT INTO sanpham (tensp, mau, dongia, nuocsx, hangsx, soluong) VALUES (?, ?, ?, ?, ?, ?)";
-        ResultSet generatedKeys = null;
+        String sql = "INSERT INTO SanPham (TenSP, Mau, GiaNiemYet, NuocSX, HangSX) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setString(1, sp.getTenSP());
-            stmt.setString(2, sp.getMau());
-            stmt.setDouble(3, sp.getDonGia());
-            stmt.setString(4, sp.getNuocSX());
-            stmt.setString(5, sp.getHangSX());
-            stmt.setInt(6, sp.getSoLuong());
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            int affectedRows = stmt.executeUpdate();
+            pstmt.setString(1, sp.getTenSP());
+            pstmt.setString(2, sp.getMau());
+            pstmt.setBigDecimal(3, sp.getGiaNiemYet());
+            pstmt.setString(4, sp.getNuocSX());
+            pstmt.setString(5, sp.getHangSX());
+
+            int affectedRows = pstmt.executeUpdate();
             if (affectedRows == 0) {
-                System.err.println("SP_QUERY (insertSanPhamAndGetId): Chèn sản phẩm thất bại.");
                 return null;
             }
-            generatedKeys = stmt.getGeneratedKeys();
-            if (generatedKeys.next()) {
-                int id = generatedKeys.getInt(1); // Lấy MaSP tự sinh
-                System.out.println("SP_QUERY (insertSanPhamAndGetId): Sản phẩm được chèn với MaSP: " + id);
-                return id;
-            } else {
-                System.err.println("SP_QUERY (insertSanPhamAndGetId): Chèn sản phẩm thành công nhưng không lấy được ID.");
-                return null;
-            }
-        } catch (SQLException e) {
-            System.err.println("SP_QUERY (insertSanPhamAndGetId): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        } finally {
-            if (generatedKeys != null) try { generatedKeys.close(); } catch (SQLException e) { /* ignored */ }
-        }
-    }
 
-    public static List<String> getAllHangSX() {
-        List<String> list = new ArrayList<>();
-        String sql = "SELECT DISTINCT hangsx FROM sanpham WHERE hangsx IS NOT NULL AND hangsx <> '' ORDER BY hangsx ASC";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                list.add(rs.getString("hangsx"));
-            }
-        } catch (SQLException e) {
-            System.err.println("SP_QUERY (getAllHangSX): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return list;
-    }
-
-    public static SanPham getSanPhamById(int maSP) {
-        String sql = "SELECT masp, tensp, mau, dongia, nuocsx, hangsx, soluong FROM sanpham WHERE masp = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, maSP);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return new SanPham(
-                        rs.getInt("masp"),
-                        rs.getString("tensp"),
-                        rs.getString("mau"),
-                        rs.getDouble("dongia"),
-                        rs.getString("nuocsx"),
-                        rs.getString("hangsx"),
-                        rs.getInt("soluong")
-                    );
+            try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    return generatedKeys.getInt(1); // Trả về ID
                 }
             }
         } catch (SQLException e) {
-            System.err.println("SP_QUERY (getSanPhamById): Lỗi SQL cho MaSP " + maSP + ": " + e.getMessage());
-            e.printStackTrace();
+            if ("23505".equals(e.getSQLState())) {
+                logger.log(Level.WARNING, "Lỗi khi thêm sản phẩm mới: Tên sản phẩm có thể đã tồn tại.", e);
+            } else {
+                logger.log(Level.SEVERE, "Lỗi khi thêm sản phẩm mới.", e);
+            }
         }
+        return null;
+    }
+
+    /**
+     * Thêm một sản phẩm mới vào CSDL.
+     * Phương thức này được tối ưu bằng cách gọi lại phương thức insertSanPhamAndGetId đã có.
+     * @param sp Đối tượng SanPham chứa thông tin cần thêm.
+     * @return true nếu thêm thành công, false nếu thất bại.
+     */
+    public static boolean insertSanPham(SanPham sp) {
+        return insertSanPhamAndGetId(sp) != null;
+    }
+
+    /**
+     * Cập nhật thông tin một sản phẩm đã có trong CSDL.
+     * @return true nếu cập nhật thành công, false nếu thất bại.
+     */
+    public static boolean updateSanPham(SanPham sp) {
+        String sql = "UPDATE SanPham SET TenSP = ?, Mau = ?, GiaNiemYet = ?, NuocSX = ?, HangSX = ? WHERE MaSP = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, sp.getTenSP());
+            pstmt.setString(2, sp.getMau());
+            pstmt.setBigDecimal(3, sp.getGiaNiemYet());
+            pstmt.setString(4, sp.getNuocSX());
+            pstmt.setString(5, sp.getHangSX());
+            pstmt.setInt(6, sp.getMaSP());
+
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Lỗi khi cập nhật sản phẩm " + sp.getMaSP(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Xóa một sản phẩm khỏi CSDL dựa vào mã sản phẩm.
+     * @return true nếu xóa thành công, false nếu thất bại (thường do ràng buộc khóa ngoại).
+     */
+    public static boolean deleteSanPham(int maSP) {
+        String sql = "DELETE FROM SanPham WHERE MaSP = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, maSP);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            if ("23503".equals(e.getSQLState())) {
+                logger.log(Level.WARNING, "Không thể xóa sản phẩm " + maSP + " do đang được tham chiếu ở nơi khác (ví dụ: trong hóa đơn).");
+            } else {
+                logger.log(Level.SEVERE, "Lỗi khi xóa sản phẩm " + maSP, e);
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Lấy danh sách các hãng sản xuất (không trùng lặp) để hiển thị trên ComboBox.
+     * @return Danh sách tên các hãng.
+     */
+    public static List<String> getAllHangSX() {
+        List<String> hangList = new ArrayList<>();
+        String sql = "SELECT DISTINCT HangSX FROM SanPham WHERE HangSX IS NOT NULL AND HangSX != '' ORDER BY HangSX";
+        try (Connection conn = DBConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                hangList.add(rs.getString("HangSX"));
+            }
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Lỗi khi lấy danh sách hãng sản xuất.", e);
+        }
+        return hangList;
+    }
+
+    /**
+     * *** PHƯƠNG THỨC MỚI ĐƯỢC THÊM VÀO ***
+     * Lấy giá nhập gần đây nhất của một sản phẩm để gợi ý cho người dùng.
+     * @param maSP Mã sản phẩm cần tìm giá.
+     * @return Giá nhập gần nhất dưới dạng BigDecimal, hoặc null nếu chưa từng nhập hoặc có lỗi.
+     */
+    public static BigDecimal getLastImportPrice(int maSP) {
+        String sql = "SELECT spct.GiaNhap " +
+                     "FROM SanPhamCuThe spct " +
+                     "JOIN HoaDonNhap hdn ON spct.MaHDN = hdn.MaHDN " +
+                     "WHERE spct.MaSP = ? " +
+                     "ORDER BY hdn.NgayNhap DESC, hdn.MaHDN DESC " + // Sắp xếp theo ngày nhập mới nhất
+                     "LIMIT 1"; // Chỉ lấy 1 kết quả đầu tiên
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, maSP);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getBigDecimal("GiaNhap");
+                }
+            }
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Lỗi khi lấy giá nhập cuối cùng cho MaSP: " + maSP, e);
+        }
+        // Trả về null nếu không tìm thấy giá hoặc có lỗi
         return null;
     }
 }

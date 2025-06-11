@@ -15,18 +15,21 @@ public class LoginView extends JFrame {
 
     public LoginView() {
         System.out.println("LOGIN_VIEW: Constructor LoginView bắt đầu.");
-        setTitle("Đăng Nhập Hệ Thống"); // Sửa lại title cho đúng
+        setTitle("Đăng Nhập Hệ Thống");
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
-        usernameField = new JTextField(20); // Số cột ban đầu, GridBagLayout sẽ điều chỉnh
+        
+        // Khởi tạo các thành phần
+        usernameField = new JTextField(20);
         passwordField = new JPasswordField(20);
         loginButton = new JButton("Đăng nhập");
         registerButton = new JButton("Đăng ký");
         changePasswordButton = new JButton("Đổi mật khẩu");
         rememberCheckBox = new JCheckBox("Nhớ tài khoản");
 
-        initUI(); // Gọi initUI sau khi đã khởi tạo các thành phần
+        // Xây dựng giao diện
+        initUI();
 
         pack(); // Tự động điều chỉnh kích thước frame dựa trên nội dung
         setMinimumSize(new Dimension(420, getHeight())); // Đảm bảo chiều rộng tối thiểu
@@ -52,37 +55,37 @@ public class LoginView extends JFrame {
         gbcInput.weightx = 1.0; // Cho phép các trường text mở rộng
 
         // Tên đăng nhập
-        gbcInput.gridx = 0; gbcInput.gridy = 0; gbcInput.weightx = 0.2; // Label chiếm ít không gian hơn
+        gbcInput.gridx = 0; gbcInput.gridy = 0; gbcInput.weightx = 0.3; // Label chiếm ít không gian hơn
         JLabel lblUsername = new JLabel("Tên đăng nhập:");
         styleLabel(lblUsername);
         inputFieldsPanel.add(lblUsername, gbcInput);
 
-        gbcInput.gridx = 1; gbcInput.gridy = 0; gbcInput.weightx = 0.8; // Field chiếm nhiều không gian hơn
+        gbcInput.gridx = 1; gbcInput.gridy = 0; gbcInput.weightx = 0.7; // Field chiếm nhiều không gian hơn
         styleTextField(usernameField);
         inputFieldsPanel.add(usernameField, gbcInput);
 
         // Mật khẩu
-        gbcInput.gridx = 0; gbcInput.gridy = 1; gbcInput.weightx = 0.2;
+        gbcInput.gridx = 0; gbcInput.gridy = 1; gbcInput.weightx = 0.3;
         JLabel lblPassword = new JLabel("Mật khẩu:");
         styleLabel(lblPassword);
         inputFieldsPanel.add(lblPassword, gbcInput);
 
-        gbcInput.gridx = 1; gbcInput.gridy = 1; gbcInput.weightx = 0.8;
+        gbcInput.gridx = 1; gbcInput.gridy = 1; gbcInput.weightx = 0.7;
         styleTextField(passwordField);
         inputFieldsPanel.add(passwordField, gbcInput);
 
         mainPanel.add(inputFieldsPanel);
-        mainPanel.add(Box.createVerticalStrut(10)); // Giảm khoảng cách một chút
+        mainPanel.add(Box.createVerticalStrut(10));
 
         // Remember checkbox
-        JPanel rememberPanel = new JPanel(new FlowLayout(FlowLayout.LEFT)); // Căn trái checkbox
+        JPanel rememberPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         rememberPanel.setOpaque(false);
         rememberCheckBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         rememberCheckBox.setOpaque(false);
         rememberCheckBox.setFocusPainted(false);
         rememberPanel.add(rememberCheckBox);
         mainPanel.add(rememberPanel);
-        mainPanel.add(Box.createVerticalStrut(20)); // Giảm khoảng cách
+        mainPanel.add(Box.createVerticalStrut(20));
 
         // Buttons
         JPanel buttonPanel = new JPanel();
@@ -115,26 +118,24 @@ public class LoginView extends JFrame {
             BorderFactory.createLineBorder(Color.GRAY, 1),
             new EmptyBorder(5, 8, 5, 8) // Padding bên trong
         ));
-        // Đảm bảo chiều cao nhất quán
-        field.setPreferredSize(new Dimension(field.getPreferredSize().width, 30));
+        // Đảm bảo chiều cao nhất quán và đủ lớn cho các ký tự
+        field.setPreferredSize(new Dimension(field.getPreferredSize().width, 35)); // SỬA LỖI: Tăng chiều cao từ 30 lên 35
     }
-
 
     private void styleGenericButton(JButton btn, Color backgroundColor) {
         btn.setFont(new Font("Segoe UI", Font.BOLD, 15));
         btn.setFocusPainted(false);
         btn.setBackground(backgroundColor);
-        btn.setForeground(Color.WHITE); // Chữ trắng luôn nổi bật trên các màu nền này
+        btn.setForeground(Color.WHITE);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(backgroundColor.darker().darker(), 1), // Viền đậm hơn
-                new EmptyBorder(10, 25, 10, 25) // Giảm padding dọc một chút
+                BorderFactory.createLineBorder(backgroundColor.darker().darker(), 1),
+                new EmptyBorder(10, 25, 10, 25)
         ));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        // Để các nút có chiều rộng bằng nhau và chiếm toàn bộ panel chứa chúng
-        btn.setMinimumSize(new Dimension(250, 45)); // Chiều cao tối thiểu
-        btn.setPreferredSize(new Dimension(280, 45)); // Chiều cao ưu tiên
-        btn.setMaximumSize(new Dimension(Short.MAX_VALUE, 45)); // Chiều cao tối đa, chiều rộng tối đa
+        btn.setMinimumSize(new Dimension(250, 45));
+        btn.setPreferredSize(new Dimension(280, 45));
+        btn.setMaximumSize(new Dimension(Short.MAX_VALUE, 45));
     }
 
     // Getters
@@ -144,23 +145,4 @@ public class LoginView extends JFrame {
     public JButton getRegisterButton() { return registerButton; }
     public JButton getChangePasswordButton() { return changePasswordButton; }
     public JCheckBox getRememberCheckBox() { return rememberCheckBox; }
-
-    public static void main(String[] args) {
-        try {
-            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (Exception e) {
-             System.err.println("Không thể áp dụng Nimbus Look and Feel: " + e.getMessage());
-        }
-
-        SwingUtilities.invokeLater(() -> {
-            LoginView view = new LoginView();
-            // controller.common.LoginController controller = new controller.common.LoginController(view); // Ví dụ
-            view.setVisible(true);
-        });
-    }
 }

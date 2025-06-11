@@ -1,76 +1,97 @@
 package model;
 
 import java.time.LocalDate;
+import java.util.Objects;
 
 public class PhieuBaoHanh {
+
+    public enum TrangThaiBaoHanh {
+        CHO_TIEP_NHAN("Cho tiep nhan"),
+        DANG_XU_LY("Dang xu ly"),
+        CHO_LINH_KIEN("Cho linh kien"),
+        DA_SUA_CHUA_XONG("Da sua chua xong"),
+        KHONG_THE_SUA_CHUA("Khong the sua chua"),
+        DA_TRA_KHACH("Da tra khach");
+
+        private final String value;
+
+        TrangThaiBaoHanh(String value) {
+            this.value = value;
+        }
+
+        public String getValue() {
+            return value;
+        }
+        public static TrangThaiBaoHanh fromString(String text) {
+            for (TrangThaiBaoHanh b : TrangThaiBaoHanh.values()) {
+                if (b.value.equalsIgnoreCase(text)) {
+                    return b;
+                }
+            }
+            // Trả về một giá trị mặc định hoặc ném exception nếu không tìm thấy
+            return DANG_XU_LY;
+        }
+    }
+
     private int idBH;
-    private int maSP;
+    private String maSPCuThe;
     private LocalDate ngayNhanSanPham;
-    private LocalDate ngayTraSanPham;  // Có thể null
+    private LocalDate ngayTraSanPham;
     private int maKH;
-    private String trangThai;
-    private Integer maHDX; // Thêm trường Mã hóa đơn xuất (Integer để cho phép null)
-
-    // Constructor khi đọc từ DB (bao gồm idBH và maHDX)
-    public PhieuBaoHanh(int idBH, int maSP, LocalDate ngayNhanSanPham, LocalDate ngayTraSanPham, int maKH, String trangThai, Integer maHDX) {
-        this.idBH = idBH;
-        this.maSP = maSP;
-        this.ngayNhanSanPham = ngayNhanSanPham;
-        this.ngayTraSanPham = ngayTraSanPham;
-        this.maKH = maKH;
-        this.trangThai = trangThai;
-        this.maHDX = maHDX; // Gán giá trị cho maHDX
-    }
-
-    // Constructor khi tạo mới (idBH tự sinh, bao gồm maHDX)
-    public PhieuBaoHanh(int maSP, LocalDate ngayNhanSanPham, LocalDate ngayTraSanPham, int maKH, String trangThai, Integer maHDX) {
-        this.maSP = maSP;
-        this.ngayNhanSanPham = ngayNhanSanPham;
-        this.ngayTraSanPham = ngayTraSanPham;
-        this.maKH = maKH;
-        this.trangThai = trangThai;
-        this.maHDX = maHDX; // Gán giá trị cho maHDX
-    }
-
-    // Constructor cũ (tạo mới không có maHDX) - Bạn có thể giữ lại nếu vẫn cần hoặc xóa đi nếu không dùng
-    // Để đơn giản, tôi sẽ giả sử bạn muốn constructor tạo mới luôn có khả năng nhận maHDX
-    // Nếu bạn muốn giữ lại, thì controller sẽ phải quyết định gọi constructor nào
-    // public PhieuBaoHanh(int maSP, LocalDate ngayNhanSanPham, LocalDate ngayTraSanPham, int maKH, String trangThai) {
-    //     this(maSP, ngayNhanSanPham, ngayTraSanPham, maKH, trangThai, null); // Gọi constructor mới với maHDX là null
-    // }
+    private TrangThaiBaoHanh trangThai;
+    private int maHDX;
 
     public PhieuBaoHanh() {
-        // Constructor rỗng
     }
 
-    // Getters
-    public int getIdBH() { return idBH; }
-    public int getMaSP() { return maSP; }
-    public LocalDate getNgayNhanSanPham() { return ngayNhanSanPham; }
-    public LocalDate getNgayTraSanPham() { return ngayTraSanPham; }
-    public int getMaKH() { return maKH; }
-    public String getTrangThai() { return trangThai; }
-    public Integer getMaHDX() { return maHDX; } // Getter cho maHDX
+    // Constructor để tạo mới
+    public PhieuBaoHanh(String maSPCuThe, LocalDate ngayNhanSanPham, LocalDate ngayTraSanPham, int maKH, TrangThaiBaoHanh trangThai, int maHDX) {
+        this.maSPCuThe = maSPCuThe;
+        this.ngayNhanSanPham = ngayNhanSanPham;
+        this.ngayTraSanPham = ngayTraSanPham;
+        this.maKH = maKH;
+        this.trangThai = trangThai;
+        this.maHDX = maHDX;
+    }
 
-    // Setters
+    // Constructor để đọc từ DB
+    public PhieuBaoHanh(int idBH, String maSPCuThe, LocalDate ngayNhanSanPham, LocalDate ngayTraSanPham, int maKH, TrangThaiBaoHanh trangThai, int maHDX) {
+        this.idBH = idBH;
+        this.maSPCuThe = maSPCuThe;
+        this.ngayNhanSanPham = ngayNhanSanPham;
+        this.ngayTraSanPham = ngayTraSanPham;
+        this.maKH = maKH;
+        this.trangThai = trangThai;
+        this.maHDX = maHDX;
+    }
+
+    // Getters and Setters
+    public int getIdBH() { return idBH; }
     public void setIdBH(int idBH) { this.idBH = idBH; }
-    public void setMaSP(int maSP) { this.maSP = maSP; }
+    public String getMaSPCuThe() { return maSPCuThe; }
+    public void setMaSPCuThe(String maSPCuThe) { this.maSPCuThe = maSPCuThe; }
+    public LocalDate getNgayNhanSanPham() { return ngayNhanSanPham; }
     public void setNgayNhanSanPham(LocalDate ngayNhanSanPham) { this.ngayNhanSanPham = ngayNhanSanPham; }
+    public LocalDate getNgayTraSanPham() { return ngayTraSanPham; }
     public void setNgayTraSanPham(LocalDate ngayTraSanPham) { this.ngayTraSanPham = ngayTraSanPham; }
+    public int getMaKH() { return maKH; }
     public void setMaKH(int maKH) { this.maKH = maKH; }
-    public void setTrangThai(String trangThai) { this.trangThai = trangThai; }
-    public void setMaHDX(Integer maHDX) { this.maHDX = maHDX; } // Setter cho maHDX
+    public TrangThaiBaoHanh getTrangThai() { return trangThai; }
+    public void setTrangThai(TrangThaiBaoHanh trangThai) { this.trangThai = trangThai; }
+    public int getMaHDX() { return maHDX; }
+    public void setMaHDX(int maHDX) { this.maHDX = maHDX; }
 
     @Override
-    public String toString() {
-        return "PhieuBaoHanh{" +
-               "idBH=" + idBH +
-               ", maSP=" + maSP +
-               ", ngayNhanSanPham=" + ngayNhanSanPham +
-               ", ngayTraSanPham=" + ngayTraSanPham +
-               ", maKH=" + maKH +
-               ", trangThai='" + trangThai + '\'' +
-               ", maHDX=" + maHDX + // Thêm maHDX vào toString
-               '}';
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        PhieuBaoHanh that = (PhieuBaoHanh) o;
+        if (idBH == 0) return false;
+        return idBH == that.idBH;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(idBH);
     }
 }

@@ -1,40 +1,42 @@
-package view.customer; 
+package view.customer;
+
 import javax.swing.*;
 import java.awt.*;
+
 public class ReturnProductView extends JFrame {
     private static final long serialVersionUID = 1L;
-    private final int maKH; 
-    private JTextField txtMaSP, txtMaDonHang, txtLyDo;
-    // private JTextField txtMaDoiTra; // Loại bỏ nếu MaDoiTra (idDT) tự sinh
+    private final int maKH;
+    private JTextField txtMaSPCuThe; 
+    private JTextField txtMaDonHang;
+    private JTextField txtLyDo;
     private JButton btnGuiYeuCau, btnTroVe;
 
-    // Constructor nhận int maKH
-    public ReturnProductView(int maKH) { // <<<< SỬA CONSTRUCTOR
+    public ReturnProductView(int maKH) {
         this.maKH = maKH;
         setTitle("Yêu Cầu Đổi/Trả Sản Phẩm - KH: " + maKH);
-        // Đặt kích thước, layout, các thành phần UI khác ở đây
-        // Ví dụ:
-        setSize(500, 350); // Kích thước ví dụ
+        setSize(500, 300); // Điều chỉnh lại kích thước cho phù hợp
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-
-        initUI(); // Gọi hàm khởi tạo UI
+        initUI();
     }
 
     private void initUI() {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(8, 5, 8, 5); // Tăng khoảng cách dọc
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
         Font labelFont = new Font("Segoe UI", Font.BOLD, 14);
         Font textFont = new Font("Segoe UI", Font.PLAIN, 14);
-        JLabel lblMaSP = new JLabel("Mã Sản Phẩm*:");
-        lblMaSP.setFont(labelFont);
-        txtMaSP = new JTextField();
-        txtMaSP.setFont(textFont);
+
+        // SỬA: Đổi tên biến và nội dung Label để chính xác về mặt logic
+        JLabel lblMaSPCuThe = new JLabel("Mã SP Cụ Thể*:");
+        lblMaSPCuThe.setFont(labelFont);
+        txtMaSPCuThe = new JTextField();
+        txtMaSPCuThe.setFont(textFont);
+        txtMaSPCuThe.setToolTipText("Nhập mã seri hoặc mã định danh duy nhất của sản phẩm trên hóa đơn.");
 
         JLabel lblMaDonHang = new JLabel("Mã Đơn Hàng*:");
         lblMaDonHang.setFont(labelFont);
@@ -43,25 +45,20 @@ public class ReturnProductView extends JFrame {
 
         JLabel lblLyDo = new JLabel("Lý do đổi/trả*:");
         lblLyDo.setFont(labelFont);
-        txtLyDo = new JTextField(); // Hoặc JTextArea nếu lý do dài
+        txtLyDo = new JTextField();
         txtLyDo.setFont(textFont);
 
-
         btnGuiYeuCau = new JButton("Gửi Yêu Cầu");
-        styleButton(btnGuiYeuCau, new Color(33, 150, 243));
+        styleButton(btnGuiYeuCau, new Color(40, 167, 69)); // Màu xanh lá cho hành động chính
 
         btnTroVe = new JButton("Trở Về");
-        styleButton(btnTroVe, new Color(108, 117, 125));
+        styleButton(btnTroVe, new Color(108, 117, 125)); // Màu xám cho hành động phụ
 
-
-        // Layout
-        // gbc.gridx = 0; gbc.gridy = 0; panel.add(lblMaDoiTra, gbc);
-        // gbc.gridx = 1; panel.add(txtMaDoiTra, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 0; // Bắt đầu từ row 0
-        panel.add(lblMaSP, gbc);
-        gbc.gridx = 1;
-        panel.add(txtMaSP, gbc);
+        // --- Sắp xếp các thành phần ---
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.3; // Label chiếm ít không gian hơn
+        panel.add(lblMaSPCuThe, gbc);
+        gbc.gridx = 1; gbc.weightx = 0.7; // Field chiếm nhiều hơn
+        panel.add(txtMaSPCuThe, gbc);
 
         gbc.gridx = 0; gbc.gridy = 1;
         panel.add(lblMaDonHang, gbc);
@@ -73,25 +70,19 @@ public class ReturnProductView extends JFrame {
         gbc.gridx = 1;
         panel.add(txtLyDo, gbc);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        // Panel cho các nút bấm
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
         buttonPanel.add(btnGuiYeuCau);
         buttonPanel.add(btnTroVe);
-
         gbc.gridx = 0; gbc.gridy = 3;
         gbc.gridwidth = 2;
         gbc.fill = GridBagConstraints.NONE;
         gbc.anchor = GridBagConstraints.CENTER;
+        gbc.insets = new Insets(20, 5, 5, 5); // Tăng khoảng cách phía trên nút
         panel.add(buttonPanel, gbc);
 
         setContentPane(panel);
-
-        // Action listener cho nút Trở về
-        btnTroVe.addActionListener(e -> {
-            dispose();
-            new CustomerView(this.maKH).setVisible(true); // Mở lại CustomerView
-        });
-
-        // Nút Gửi Yêu Cầu sẽ được controller gắn listener
+        btnTroVe.addActionListener(e -> dispose());
     }
 
     private void styleButton(JButton button, Color backgroundColor) {
@@ -100,17 +91,11 @@ public class ReturnProductView extends JFrame {
         button.setForeground(Color.WHITE);
         button.setFocusPainted(false);
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(backgroundColor.darker(), 1),
-            BorderFactory.createEmptyBorder(8, 15, 8, 15)
-        ));
+        button.setBorder(BorderFactory.createEmptyBorder(8, 20, 8, 20));
     }
-
-    // Getters cho controller lấy thông tin từ form
-    // public String getMaDoiTra() { return txtMaDoiTra.getText(); } // Loại bỏ
-    public String getMaSP() { return txtMaSP.getText(); }
+    public String getMaSPCuThe() { return txtMaSPCuThe.getText(); }
     public String getMaDonHang() { return txtMaDonHang.getText(); }
     public String getLyDo() { return txtLyDo.getText(); }
     public JButton getBtnGuiYeuCau() { return btnGuiYeuCau; }
-    public int getMaKHFromView() { return this.maKH;} // Cung cấp MaKH cho controller nếu cần
+    public int getMaKHFromView() { return this.maKH; }
 }

@@ -1,29 +1,35 @@
 package view.employee;
 
 import controller.employee.ImportProductController;
-import model.ChiTietHDNhap;
 import model.NhaCungCap;
 import model.SanPham;
+import model.NhapHangItem;
 import query.NhaCungCapQuery;
 import query.SanPhamQuery;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
 import java.awt.*;
-// import java.awt.event.ItemEvent; // Cho việc tự động điền đơn giá
+import java.awt.event.ItemEvent;
+import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 
 public class ImportProductView extends JFrame {
     private static final long serialVersionUID = 1L;
     private JComboBox<NhaCungCap> cboNCC;
     private JComboBox<SanPham> cboSanPham;
-    private JTextField txtSoLuong, txtDonGia;
+    private JTextField txtSoLuong;
+    private JTextField txtDonGia;
     private JTable table;
     private DefaultTableModel tableModel;
-    private List<ChiTietHDNhap> dsNhap = new ArrayList<>();
+    private final List<NhapHangItem> dsNhap = new ArrayList<>();
     private final int maNV;
 
     private static final Font LABEL_FONT = new Font("Segoe UI", Font.PLAIN, 14);
@@ -32,13 +38,12 @@ public class ImportProductView extends JFrame {
     private static final Color PRIMARY_BUTTON_COLOR = new Color(0, 123, 255);
     private static final Color SUCCESS_BUTTON_COLOR = new Color(40, 167, 69);
     private static final Color SECONDARY_BUTTON_COLOR = new Color(108, 117, 125);
-    private static final Color BORDER_COLOR = new Color(0, 86, 179);
+    private final NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
 
     public ImportProductView(int maNV) {
         this.maNV = maNV;
-        System.out.println("IMPORT_PRODUCT_VIEW: Khoi tao cho NV (Ma: " + maNV + ")");
-        setTitle("Nhap Hang");
-        setSize(900, 700);
+        setTitle("Quản Lý Nhập Hàng - Nhân viên: " + maNV);
+        setSize(1000, 750);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         initUI();
@@ -46,57 +51,60 @@ public class ImportProductView extends JFrame {
     }
 
     private void initUI() {
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+        JPanel mainPanel = new JPanel(new BorderLayout(10, 15));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+        mainPanel.setBackground(new Color(245, 245, 245));
 
-        JLabel lblTitle = new JLabel("Quan Ly Nhap Hang", SwingConstants.CENTER);
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 24));
+        JLabel lblTitle = new JLabel("Tạo Phiếu Nhập Hàng", SwingConstants.CENTER);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 24));
         mainPanel.add(lblTitle, BorderLayout.NORTH);
 
+        cboNCC = new JComboBox<>();
+        cboNCC.setRenderer(new NhaCungCapRenderer());
+        cboSanPham = new JComboBox<>();
+        cboSanPham.setRenderer(new SanPhamRenderer());
+        // *** THAY ĐỔI 1: Thêm listener để tự động lấy giá ***
+        cboSanPham.addItemListener(this::onProductSelected);
+
         JPanel topInputPanel = new JPanel(new GridBagLayout());
+        topInputPanel.setOpaque(false);
         GridBagConstraints gbcTop = new GridBagConstraints();
         gbcTop.insets = new Insets(5, 5, 5, 5);
         gbcTop.fill = GridBagConstraints.HORIZONTAL;
-
-        JLabel lblNCC = new JLabel("Nha cung cap*:");
-        lblNCC.setFont(LABEL_FONT);
-        gbcTop.gridx = 0; gbcTop.gridy = 0;
-        gbcTop.weightx = 0.1;
+        JLabel lblNCC = new JLabel("Nhà cung cấp*:");
+        lblNCC.setFont(LABEL_FONT.deriveFont(Font.BOLD));
+        gbcTop.gridx = 0; gbcTop.gridy = 0; gbcTop.weightx = 0.1;
         topInputPanel.add(lblNCC, gbcTop);
-
-        cboNCC = new JComboBox<>();
         cboNCC.setFont(INPUT_FONT);
-        gbcTop.gridx = 1; gbcTop.gridy = 0;
-        gbcTop.weightx = 0.9;
+        gbcTop.gridx = 1; gbcTop.gridy = 0; gbcTop.weightx = 0.9;
         topInputPanel.add(cboNCC, gbcTop);
 
-        JPanel productSelectionPanel = new JPanel(new BorderLayout(10,10));
-        TitledBorder titledBorder = BorderFactory.createTitledBorder("Them san pham vao phieu nhap");
+        JPanel productSelectionPanel = new JPanel(new BorderLayout(10, 10));
+        TitledBorder titledBorder = BorderFactory.createTitledBorder("Thêm sản phẩm vào phiếu nhập");
         titledBorder.setTitleFont(LABEL_FONT.deriveFont(Font.BOLD));
-        productSelectionPanel.setBorder(titledBorder);
+        productSelectionPanel.setBorder(BorderFactory.createCompoundBorder(titledBorder, new EmptyBorder(5, 5, 5, 5)));
+        productSelectionPanel.setOpaque(false);
 
         JPanel productFieldsPanel = new JPanel(new GridBagLayout());
+        productFieldsPanel.setOpaque(false);
         GridBagConstraints gbcFields = new GridBagConstraints();
-        gbcFields.insets = new Insets(5, 5, 5, 5);
+        gbcFields.insets = new Insets(8, 5, 8, 5);
         gbcFields.anchor = GridBagConstraints.WEST;
 
-        JLabel lblSanPham = new JLabel("San pham:");
+        JLabel lblSanPham = new JLabel("Sản phẩm:");
         lblSanPham.setFont(LABEL_FONT);
         gbcFields.gridx = 0; gbcFields.gridy = 0;
         productFieldsPanel.add(lblSanPham, gbcFields);
 
-        cboSanPham = new JComboBox<>();
         cboSanPham.setFont(INPUT_FONT);
-        cboSanPham.setPreferredSize(new Dimension(280, cboSanPham.getPreferredSize().height));
-        gbcFields.gridx = 1; gbcFields.gridy = 0; gbcFields.gridwidth = 3;
-        gbcFields.fill = GridBagConstraints.HORIZONTAL;
-        gbcFields.weightx = 1.0;
+        gbcFields.gridx = 1; gbcFields.gridy = 0; gbcFields.gridwidth = 4;
+        gbcFields.fill = GridBagConstraints.HORIZONTAL; gbcFields.weightx = 1.0;
         productFieldsPanel.add(cboSanPham, gbcFields);
 
-        JLabel lblSoLuong = new JLabel("So luong:");
+        JLabel lblSoLuong = new JLabel("Số lượng*:");
         lblSoLuong.setFont(LABEL_FONT);
-        gbcFields.gridx = 0; gbcFields.gridy = 1;
-        gbcFields.gridwidth = 1; gbcFields.fill = GridBagConstraints.NONE; gbcFields.weightx = 0;
+        gbcFields.gridx = 0; gbcFields.gridy = 1; gbcFields.gridwidth = 1;
+        gbcFields.fill = GridBagConstraints.NONE; gbcFields.weightx = 0;
         productFieldsPanel.add(lblSoLuong, gbcFields);
 
         txtSoLuong = new JTextField(7);
@@ -105,11 +113,13 @@ public class ImportProductView extends JFrame {
         gbcFields.fill = GridBagConstraints.HORIZONTAL; gbcFields.weightx = 0.3;
         productFieldsPanel.add(txtSoLuong, gbcFields);
 
-        JLabel lblDonGia = new JLabel("Don gia nhap:");
+        JLabel lblDonGia = new JLabel("Đơn giá nhập*:");
         lblDonGia.setFont(LABEL_FONT);
         gbcFields.gridx = 2; gbcFields.gridy = 1;
         gbcFields.fill = GridBagConstraints.NONE; gbcFields.weightx = 0;
+        gbcFields.insets.left = 15;
         productFieldsPanel.add(lblDonGia, gbcFields);
+        gbcFields.insets.left = 5;
 
         txtDonGia = new JTextField(10);
         txtDonGia.setFont(INPUT_FONT);
@@ -117,34 +127,32 @@ public class ImportProductView extends JFrame {
         gbcFields.fill = GridBagConstraints.HORIZONTAL; gbcFields.weightx = 0.3;
         productFieldsPanel.add(txtDonGia, gbcFields);
 
-        JButton btnThemSPVaoBang = createStyledButton("Them vao phieu");
+        JButton btnThemSPVaoBang = createStyledButton("Thêm vào phiếu", PRIMARY_BUTTON_COLOR);
         btnThemSPVaoBang.setMargin(new Insets(5, 10, 5, 10));
-        gbcFields.gridx = 4; gbcFields.gridy = 1;
-        gbcFields.fill = GridBagConstraints.NONE; gbcFields.weightx = 0.1;
-        gbcFields.anchor = GridBagConstraints.EAST;
+        gbcFields.gridx = 4; gbcFields.gridy = 1; gbcFields.fill = GridBagConstraints.NONE;
+        gbcFields.weightx = 0.1; gbcFields.anchor = GridBagConstraints.EAST;
         productFieldsPanel.add(btnThemSPVaoBang, gbcFields);
 
         productSelectionPanel.add(productFieldsPanel, BorderLayout.NORTH);
 
-        tableModel = new DefaultTableModel(new String[]{"Ma SP", "Ten SP", "So luong", "Don gia nhap", "Thanh tien"}, 0){
+        tableModel = new DefaultTableModel(new String[]{"Mã SP", "Tên Sản Phẩm", "Số lượng", "Đơn giá nhập", "Thành tiền"}, 0) {
             private static final long serialVersionUID = 1L;
             @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         table = new JTable(tableModel);
         styleTable(table);
-        JScrollPane scrollPane = new JScrollPane(table);
-        productSelectionPanel.add(scrollPane, BorderLayout.CENTER);
+        productSelectionPanel.add(new JScrollPane(table), BorderLayout.CENTER);
 
-        JPanel centerContainer = new JPanel(new BorderLayout(10,10));
+        JPanel centerContainer = new JPanel(new BorderLayout(10, 10));
+        centerContainer.setOpaque(false);
         centerContainer.add(topInputPanel, BorderLayout.NORTH);
         centerContainer.add(productSelectionPanel, BorderLayout.CENTER);
         mainPanel.add(centerContainer, BorderLayout.CENTER);
 
         JPanel bottomButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        JButton btnXacNhanNhapHang = createStyledButton("Xac nhan nhap hang");
-        btnXacNhanNhapHang.setBackground(SUCCESS_BUTTON_COLOR);
-        JButton btnBack = createStyledButton("Tro ve");
-        btnBack.setBackground(SECONDARY_BUTTON_COLOR);
+        bottomButtonPanel.setOpaque(false);
+        JButton btnXacNhanNhapHang = createStyledButton("Xác nhận nhập hàng", SUCCESS_BUTTON_COLOR);
+        JButton btnBack = createStyledButton("Trở về", SECONDARY_BUTTON_COLOR);
 
         bottomButtonPanel.add(btnXacNhanNhapHang);
         bottomButtonPanel.add(btnBack);
@@ -152,11 +160,7 @@ public class ImportProductView extends JFrame {
 
         btnThemSPVaoBang.addActionListener(e -> themSanPhamVaoPhieu());
         btnXacNhanNhapHang.addActionListener(e -> xacNhanNhap());
-        btnBack.addActionListener(e -> {
-            dispose();
-            // new EmployeeMenuView(maNV).setVisible(true); // Example
-        });
-
+        btnBack.addActionListener(e -> dispose());
         setContentPane(mainPanel);
     }
 
@@ -167,206 +171,195 @@ public class ImportProductView extends JFrame {
         tbl.setRowHeight(30);
         tbl.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tbl.getTableHeader().setReorderingAllowed(false);
-        tbl.setAutoCreateRowSorter(true);
+        tbl.getTableHeader().setOpaque(false);
+        tbl.getTableHeader().setBackground(new Color(32, 136, 203));
+        tbl.getTableHeader().setForeground(Color.WHITE);
 
         TableColumnModel tcm = tbl.getColumnModel();
         tcm.getColumn(0).setPreferredWidth(80);
-        tcm.getColumn(1).setPreferredWidth(250);
+        tcm.getColumn(1).setPreferredWidth(300);
         tcm.getColumn(2).setPreferredWidth(100);
         tcm.getColumn(3).setPreferredWidth(120);
-        tcm.getColumn(4).setPreferredWidth(120);
+        tcm.getColumn(4).setPreferredWidth(150);
     }
 
-    private JButton createStyledButton(String text) {
+    private JButton createStyledButton(String text, Color color) {
         JButton btn = new JButton(text);
         btn.setFont(BUTTON_FONT);
         btn.setFocusPainted(false);
-        btn.setBackground(PRIMARY_BUTTON_COLOR);
+        btn.setBackground(color);
         btn.setForeground(Color.WHITE);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER_COLOR, 1),
-                BorderFactory.createEmptyBorder(10, 20, 10, 20)
-        ));
+        btn.setPreferredSize(new Dimension(220, 40));
+        btn.setBorder(BorderFactory.createEmptyBorder());
         return btn;
     }
 
     private void loadData() {
-        System.out.println("IMPORT_PRODUCT_VIEW: Loading data for ComboBoxes...");
+        // ... (phương thức này giữ nguyên, không thay đổi)
         try {
             List<NhaCungCap> dsNCC = NhaCungCapQuery.getAll();
             cboNCC.removeAllItems();
-            if (dsNCC != null && !dsNCC.isEmpty()) {
-                for (NhaCungCap ncc : dsNCC) {
-                    cboNCC.addItem(ncc);
-                }
-                cboNCC.setSelectedItem(null);
-                System.out.println("IMPORT_PRODUCT_VIEW: Loaded " + dsNCC.size() + " NhaCungCap.");
-            } else {
-                System.out.println("IMPORT_PRODUCT_VIEW: No NhaCungCap found or error loading.");
-                // Placeholder cho NhaCungCap (điều chỉnh constructor nếu cần)
-                // Giả sử NhaCungCap có constructor (int maNCC, String tenNCC, String diaChi, String sdt)
-                NhaCungCap placeholderNCC = new NhaCungCap(0, "Khong tim thay NCC", "N/A", "N/A");
-                // Nếu NhaCungCap chỉ có constructor (int maNCC, String tenNCC)
-                // NhaCungCap placeholderNCC = new NhaCungCap(0, "Khong tim thay NCC");
-                cboNCC.addItem(placeholderNCC);
-            }
+            cboNCC.addItem(new NhaCungCap(0, "-- Chọn nhà cung cấp --", "", ""));
+            for (NhaCungCap ncc : dsNCC) { cboNCC.addItem(ncc); }
         } catch (Exception e) {
-            System.err.println("IMPORT_PRODUCT_VIEW: Error loading NhaCungCap: " + e.getMessage());
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Loi tai danh sach Nha Cung Cap!", "Loi Du Lieu", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Lỗi tải danh sách Nhà Cung Cấp!", "Lỗi Dữ Liệu", JOptionPane.ERROR_MESSAGE);
         }
 
         try {
             List<SanPham> dsSP = SanPhamQuery.getAll();
             cboSanPham.removeAllItems();
-            if (dsSP != null && !dsSP.isEmpty()) {
-                for (SanPham sp : dsSP) {
-                    cboSanPham.addItem(sp);
-                }
-                cboSanPham.setSelectedItem(null);
-                System.out.println("IMPORT_PRODUCT_VIEW: Loaded " + dsSP.size() + " SanPham.");
-            } else {
-                System.out.println("IMPORT_PRODUCT_VIEW: No SanPham found or error loading.");
-                // SỬA LỖI: Gọi constructor SanPham 7 tham số cho placeholder
-                cboSanPham.addItem(new SanPham(
-                        0,                         // maSP (int)
-                        "Khong tim thay SP",       // tenSP (String)
-                        "N/A",                     // mau (String)
-                        0.0,                       // donGia (double) - Đây là giá bán trong model SanPham, không phải giá nhập
-                        "N/A",                     // nuocSX (String)
-                        "N/A",                     // hangSX (String)
-                        0                          // soLuong (int) - Số lượng tồn kho
-                ));
-            }
+            cboSanPham.addItem(new SanPham(0, "-- Chọn sản phẩm --", "", null, "", ""));
+            for (SanPham sp : dsSP) { cboSanPham.addItem(sp); }
         } catch (Exception e) {
-            System.err.println("IMPORT_PRODUCT_VIEW: Error loading SanPham: " + e.getMessage());
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Loi tai danh sach San Pham!", "Loi Du Lieu", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Lỗi tải danh sách Sản Phẩm!", "Lỗi Dữ Liệu", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    private void onProductSelected(ItemEvent e) {
+        if (e.getStateChange() == ItemEvent.SELECTED) {
+            Object item = e.getItem();
+            if (item instanceof SanPham && ((SanPham) item).getMaSP() != 0) {
+                SanPham selectedProduct = (SanPham) item;
+
+                new SwingWorker<BigDecimal, Void>() {
+                    @Override
+                    protected BigDecimal doInBackground() throws Exception {
+                        return SanPhamQuery.getLastImportPrice(selectedProduct.getMaSP());
+                    }
+
+                    @Override
+                    protected void done() {
+                        try {
+                            BigDecimal lastPrice = get();
+                            if (lastPrice != null) {
+                                // toPlainString() để hiển thị số thuần, không có ký tự khoa học
+                                txtDonGia.setText(lastPrice.toPlainString());
+                            } else {
+                                // Nếu sản phẩm chưa từng được nhập, xóa trống ô đơn giá
+                                txtDonGia.setText("");
+                            }
+                            // Chuyển con trỏ tới ô số lượng để tiện nhập liệu
+                            txtSoLuong.requestFocusInWindow();
+                        } catch (InterruptedException | ExecutionException ex) {
+                            ex.printStackTrace();
+                            txtDonGia.setText(""); // Xóa nếu có lỗi
+                        }
+                    }
+                }.execute();
+            } else {
+                // Nếu người dùng chọn mục "-- Chọn...", xóa trống ô đơn giá
+                txtDonGia.setText("");
+            }
         }
     }
 
     private void themSanPhamVaoPhieu() {
+        // ... (phương thức này giữ nguyên, không thay đổi)
         SanPham spChon = (SanPham) cboSanPham.getSelectedItem();
-        if (spChon == null || spChon.getMaSP() == 0) { // Kiểm tra cả placeholder
-            JOptionPane.showMessageDialog(this, "Vui long chon mot san pham hop le.", "Chua chon san pham", JOptionPane.WARNING_MESSAGE);
-            cboSanPham.requestFocusInWindow();
-            return;
-        }
-
-        String soLuongStr = txtSoLuong.getText().trim();
-        String donGiaStr = txtDonGia.getText().trim();
-
-        if (soLuongStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui long nhap So luong.", "Thieu so luong", JOptionPane.WARNING_MESSAGE);
-            txtSoLuong.requestFocusInWindow();
-            return;
-        }
-        if (donGiaStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui long nhap Don gia nhap.", "Thieu don gia", JOptionPane.WARNING_MESSAGE);
-            txtDonGia.requestFocusInWindow();
+        if (spChon == null || spChon.getMaSP() == 0) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một sản phẩm hợp lệ.", "Chưa chọn sản phẩm", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         int soLuong;
-        double donGiaNhap; // Đổi tên biến để rõ ràng hơn
+        BigDecimal donGiaNhap;
 
         try {
-            soLuong = Integer.parseInt(soLuongStr);
-            if (soLuong <= 0) {
-                JOptionPane.showMessageDialog(this, "So luong phai lon hon 0.", "So luong khong hop le", JOptionPane.WARNING_MESSAGE);
-                txtSoLuong.requestFocusInWindow();
-                return;
-            }
+            soLuong = Integer.parseInt(txtSoLuong.getText().trim());
+            if (soLuong <= 0) throw new NumberFormatException("Số lượng phải lớn hơn 0");
         } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "So luong phai la mot so nguyen hop le.", "Loi dinh dang so luong", JOptionPane.ERROR_MESSAGE);
-            txtSoLuong.requestFocusInWindow();
+            JOptionPane.showMessageDialog(this, "Số lượng phải là một số nguyên lớn hơn 0.", "Lỗi nhập liệu", JOptionPane.ERROR_MESSAGE);
+            txtSoLuong.requestFocus();
             return;
         }
 
         try {
-            // Loại bỏ dấu phẩy nếu người dùng nhập theo kiểu 1,000,000
-            donGiaNhap = Double.parseDouble(donGiaStr.replace(",", ""));
-            if (donGiaNhap <= 0) {
-                JOptionPane.showMessageDialog(this, "Don gia nhap phai lon hon 0.", "Don gia khong hop le", JOptionPane.WARNING_MESSAGE);
-                txtDonGia.requestFocusInWindow();
-                return;
-            }
-        } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "Don gia nhap phai la mot so hop le.", "Loi dinh dang don gia", JOptionPane.ERROR_MESSAGE);
-            txtDonGia.requestFocusInWindow();
+            donGiaNhap = new BigDecimal(txtDonGia.getText().trim().replace(",", ""));
+            if (donGiaNhap.compareTo(BigDecimal.ZERO) <= 0) throw new NumberFormatException("Đơn giá phải lớn hơn 0");
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Đơn giá nhập phải là một số hợp lệ và lớn hơn 0.", "Lỗi nhập liệu", JOptionPane.ERROR_MESSAGE);
+            txtDonGia.requestFocus();
             return;
         }
 
-        for (ChiTietHDNhap ctTrongPhieu : dsNhap) {
-            if (ctTrongPhieu.getMaSP() == spChon.getMaSP()) {
-                JOptionPane.showMessageDialog(this, "San pham '" + spChon.getTenSP() + "' da duoc them vao phieu truoc do.", "San pham da ton tai", JOptionPane.INFORMATION_MESSAGE);
+        for (NhapHangItem ct : dsNhap) {
+            if (ct.getSanPham().getMaSP() == spChon.getMaSP()) {
+                JOptionPane.showMessageDialog(this, "Sản phẩm '" + spChon.getTenSP() + "' đã có trong phiếu.", "Sản phẩm trùng lặp", JOptionPane.WARNING_MESSAGE);
                 return;
             }
         }
 
-        // MaHDN sẽ được gán bởi controller sau khi HoaDonNhap được tạo
-        ChiTietHDNhap chiTietMoi = new ChiTietHDNhap(spChon.getMaSP(), 0, soLuong, donGiaNhap); // MaHDN tạm là 0
-        dsNhap.add(chiTietMoi);
+        NhapHangItem itemMoi = new NhapHangItem(spChon, soLuong, donGiaNhap);
+        dsNhap.add(itemMoi);
+
+        BigDecimal thanhTien = donGiaNhap.multiply(new BigDecimal(soLuong));
         tableModel.addRow(new Object[]{
                 spChon.getMaSP(),
                 spChon.getTenSP(),
                 soLuong,
-                String.format("%,.0f", donGiaNhap), // Định dạng đơn giá nhập có dấu phẩy, không có phần thập phân
-                String.format("%,.0f", soLuong * donGiaNhap) // Định dạng thành tiền
+                currencyFormatter.format(donGiaNhap),
+                currencyFormatter.format(thanhTien)
         });
 
+        cboSanPham.setSelectedIndex(0);
         txtSoLuong.setText("");
         txtDonGia.setText("");
-        cboSanPham.setSelectedItem(null);
         cboSanPham.requestFocusInWindow();
-        System.out.println("IMPORT_PRODUCT_VIEW: Da them SP ID " + spChon.getMaSP() + " vao phieu tam.");
     }
 
     private void xacNhanNhap() {
+        // ... (phương thức này giữ nguyên, không thay đổi)
         if (dsNhap.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Vui long them it nhat mot san pham vao phieu nhap.", "Phieu nhap trong", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Vui lòng thêm ít nhất một sản phẩm vào phiếu nhập.", "Phiếu nhập rỗng", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         NhaCungCap nccChon = (NhaCungCap) cboNCC.getSelectedItem();
-        if (nccChon == null || nccChon.getMaNCC() == 0) { // Kiểm tra cả placeholder
-            JOptionPane.showMessageDialog(this, "Vui long chon nha cung cap hop le.", "Thieu Nha Cung Cap", JOptionPane.WARNING_MESSAGE);
-            cboNCC.requestFocusInWindow();
+        if (nccChon == null || nccChon.getMaNCC() == 0) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn nhà cung cấp.", "Thiếu Nhà Cung Cấp", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "Ban co chac chan muon xac nhan nhap hang voi cac san pham da chon khong?",
-                "Xac nhan nhap hang",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE);
+        int confirm = JOptionPane.showConfirmDialog(this, "Xác nhận tạo phiếu nhập hàng này?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+        if (confirm != JOptionPane.YES_OPTION) return;
 
-        if (confirm == JOptionPane.NO_OPTION) {
-            return;
+        ImportProductController controller = new ImportProductController();
+        boolean success = controller.nhapHang(maNV, nccChon.getMaNCC(), dsNhap);
+
+        if (success) {
+            JOptionPane.showMessageDialog(this, "Nhập hàng thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+            dsNhap.clear();
+            tableModel.setRowCount(0);
+            cboNCC.setSelectedIndex(0);
+            cboSanPham.setSelectedIndex(0);
+        } else {
+            JOptionPane.showMessageDialog(this, "Nhập hàng thất bại. Giao dịch đã được hủy bỏ. Vui lòng kiểm tra log để biết chi tiết.", "Lỗi nhập hàng", JOptionPane.ERROR_MESSAGE);
         }
+    }
 
-        try {
-            ImportProductController controller = new ImportProductController();
-            boolean success = controller.nhapHang(maNV, nccChon.getMaNCC(), dsNhap);
-
-            if (success) {
-                JOptionPane.showMessageDialog(this, "Nhap hang thanh cong!", "Thanh cong", JOptionPane.INFORMATION_MESSAGE);
-                dsNhap.clear();
-                tableModel.setRowCount(0);
-                txtSoLuong.setText("");
-                txtDonGia.setText("");
-                cboNCC.setSelectedItem(null);
-                cboSanPham.setSelectedItem(null);
-                System.out.println("IMPORT_PRODUCT_VIEW: Nhap hang thanh cong, form da duoc reset.");
-            } else {
-                JOptionPane.showMessageDialog(this, "Nhap hang that bai. Vui long kiem tra lai thong tin.", "Loi nhap hang", JOptionPane.ERROR_MESSAGE);
-                System.err.println("IMPORT_PRODUCT_VIEW: Loi tu controller khi xac nhan nhap hang.");
+    private static class NhaCungCapRenderer extends DefaultListCellRenderer {
+        private static final long serialVersionUID = 1L;
+        @Override
+        public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            if (value instanceof NhaCungCap) {
+                NhaCungCap ncc = (NhaCungCap) value;
+                setText(ncc.getMaNCC() == 0 ? ncc.getTenNCC() : String.format("%d - %s", ncc.getMaNCC(), ncc.getTenNCC()));
             }
-        } catch (Exception e) {
-            System.err.println("IMPORT_PRODUCT_VIEW: Exception khi goi controller.nhapHang: " + e.getMessage());
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Da xay ra loi khong mong muon khi xu ly yeu cau.", "Loi He Thong", JOptionPane.ERROR_MESSAGE);
+            return this;
+        }
+    }
+
+    private static class SanPhamRenderer extends DefaultListCellRenderer {
+        private static final long serialVersionUID = 1L;
+        @Override
+        public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            if (value instanceof SanPham) {
+                SanPham sp = (SanPham) value;
+                setText(sp.getMaSP() == 0 ? sp.getTenSP() : String.format("%s (%s)", sp.getTenSP(), sp.getHangSX()));
+            }
+            return this;
         }
     }
 }

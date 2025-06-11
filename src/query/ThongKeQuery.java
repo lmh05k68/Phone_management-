@@ -1,106 +1,64 @@
 package query;
 
-import dbConnection.DBConnection; // Giả sử bạn có class này
-
+import dbConnection.DBConnection;
+import java.math.BigDecimal;
+import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ThongKeQuery {
 
-    /**
-     * Tính tổng doanh thu (sau thuế) từ hóa đơn xuất trong một tháng/năm cụ thể.
-     * Doanh thu được tính bằng tổng của (thanhtien * (1 + mucthue / 100.0)).
-     * @param thang Tháng cần thống kê.
-     * @param nam Năm cần thống kê.
-     * @return Tổng doanh thu, hoặc 0.0 nếu có lỗi hoặc không có dữ liệu.
-     */
-    public static double getDoanhThuThang(int thang, int nam) {
-        // Giả sử tên cột trong bảng hoadonxuat là: thanhtien, mucthue, ngaylap
-        String sql = "SELECT COALESCE(SUM(thanhtien * (1 + mucthue / 100.0)), 0.0) AS tong_doanh_thu " +
-                     "FROM hoadonxuat " +
-                     "WHERE EXTRACT(MONTH FROM ngaylap) = ? AND EXTRACT(YEAR FROM ngaylap) = ?";
-        System.out.println("THONGKE_QUERY (getDoanhThuThang): SQL=" + sql + ", Thang=" + thang + ", Nam=" + nam);
+    private static final Logger logger = Logger.getLogger(ThongKeQuery.class.getName());
+    public static BigDecimal getDoanhThuThang(int thang, int nam) {
+        String sql = "{? = call func_tinh_tong_doanh_thu(?, ?)}"; 
+        try (Connection conn = DBConnection.getConnection();
+             CallableStatement cstmt = conn.prepareCall(sql)) {
+            cstmt.registerOutParameter(1, Types.DECIMAL);
+            cstmt.setInt(2, thang);
+            cstmt.setInt(3, nam);
+            cstmt.execute();
+            BigDecimal doanhThu = cstmt.getBigDecimal(1);
+            logger.info("Doanh thu tháng " + thang + "/" + nam + ": " + (doanhThu != null ? doanhThu.toString() : "0"));
+            return doanhThu != null ? doanhThu : BigDecimal.ZERO;
 
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
-        try {
-            conn = DBConnection.getConnection();
-            stmt = conn.prepareStatement(sql);
-            stmt.setInt(1, thang);
-            stmt.setInt(2, nam);
-            rs = stmt.executeQuery();
-            if (rs.next()) {
-                double doanhThu = rs.getDouble("tong_doanh_thu"); // Hoặc rs.getDouble(1)
-                System.out.println("THONGKE_QUERY (getDoanhThuThang): Doanh thu tinh duoc: " + doanhThu);
-                return doanhThu;
-            }
         } catch (SQLException e) {
-            System.err.println("THONGKE_QUERY (getDoanhThuThang): Loi khi tinh doanh thu thang " + thang + "/" + nam + ": " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            // Đảm bảo đóng tất cả tài nguyên
-            if (rs != null) {
-                try { rs.close(); } catch (SQLException e) { e.printStackTrace(); }
-            }
-            if (stmt != null) {
-                try { stmt.close(); } catch (SQLException e) { e.printStackTrace(); }
-            }
-            if (conn != null) {
-                try { conn.close(); } catch (SQLException e) { e.printStackTrace(); }
-            }
+            logger.log(Level.SEVERE, "Lỗi khi gọi hàm tính doanh thu tháng " + thang + "/" + nam, e);
         }
-        return 0.0; // Trả về 0 nếu không có dữ liệu hoặc có lỗi
+        // Trả về 0 nếu có lỗi
+        return BigDecimal.ZERO; 
     }
 
     /**
-     * Tính tổng chi tiêu từ hóa đơn nhập trong một tháng/năm cụ thể.
-     * Chi tiêu được tính bằng tổng của (soluong * dongianhap) từ chitiethdnhap.
+     * Gọi hàm func_tinh_tong_chi_tieu trong CSDL để lấy tổng chi tiêu.
+     * Chi tiêu được tính là tổng giá nhập của các sản phẩm cụ thể.
      * @param thang Tháng cần thống kê.
-     * @param nam Năm cần thống kê.
-     * @return Tổng chi tiêu, hoặc 0.0 nếu có lỗi hoặc không có dữ liệu.
+     * @param nam   Năm cần thống kê.
+     * @return Tổng chi tiêu dưới dạng BigDecimal, hoặc BigDecimal.ZERO nếu có lỗi.
      */
-    public static double getChiTieuThang(int thang, int nam) {
-        // SỬA TÊN CỘT: ctn.slnhap -> ctn.soluong
-        // KIỂM TRA TÊN CỘT NGÀY: hdn.ngaynhap (hoặc hdn.ngaylap nếu đó là tên cột ngày trong bảng hoadonnhap)
-        // Giả sử tên cột ngày trong hoadonnhap là 'ngaylap' để nhất quán với nhiều hệ thống
-        String sql = "SELECT COALESCE(SUM(ctn.soluong * ctn.dongianhap), 0.0) AS tong_chi_tieu " +
-                     "FROM chitiethdnhap ctn " +
-                     "JOIN hoadonnhap hdn ON ctn.mahdn = hdn.mahdn " +
-                     "WHERE EXTRACT(MONTH FROM hdn.ngaylap) = ? AND EXTRACT(YEAR FROM hdn.ngaylap) = ?";
-                     // Nếu cột ngày trong hoadonnhap là 'ngaynhap', hãy đổi 'hdn.ngaylap' thành 'hdn.ngaynhap' ở trên
-        System.out.println("THONGKE_QUERY (getChiTieuThang): SQL=" + sql + ", Thang=" + thang + ", Nam=" + nam);
+    public static BigDecimal getChiTieuThang(int thang, int nam) {
+        // Tên hàm trong SQL là func_tinh_tong_chi_tieu(thang, nam)
+        String sql = "{? = call func_tinh_tong_chi_tieu(?, ?)}";
 
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
-        try {
-            conn = DBConnection.getConnection();
-            stmt = conn.prepareStatement(sql);
-            stmt.setInt(1, thang);
-            stmt.setInt(2, nam);
-            rs = stmt.executeQuery();
-            if (rs.next()) {
-                double chiTieu = rs.getDouble("tong_chi_tieu"); // Hoặc rs.getDouble(1)
-                System.out.println("THONGKE_QUERY (getChiTieuThang): Chi tieu tinh duoc: " + chiTieu);
-                return chiTieu;
-            }
+        // TỐI ƯU: Sử dụng try-with-resources
+        try (Connection conn = DBConnection.getConnection();
+             CallableStatement cstmt = conn.prepareCall(sql)) {
+
+            cstmt.registerOutParameter(1, Types.DECIMAL);
+            cstmt.setInt(2, thang);
+            cstmt.setInt(3, nam);
+            cstmt.execute();
+
+            BigDecimal chiTieu = cstmt.getBigDecimal(1);
+            logger.info("Chi tiêu tháng " + thang + "/" + nam + ": " + (chiTieu != null ? chiTieu.toString() : "0"));
+            return chiTieu != null ? chiTieu : BigDecimal.ZERO;
+
         } catch (SQLException e) {
-            System.err.println("THONGKE_QUERY (getChiTieuThang): Loi khi tinh chi tieu thang " + thang + "/" + nam + ": " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            if (rs != null) {
-                try { rs.close(); } catch (SQLException e) { e.printStackTrace(); }
-            }
-            if (stmt != null) {
-                try { stmt.close(); } catch (SQLException e) { e.printStackTrace(); }
-            }
-            if (conn != null) {
-                try { conn.close(); } catch (SQLException e) { e.printStackTrace(); }
-            }
+            logger.log(Level.SEVERE, "Lỗi khi gọi hàm tính chi tiêu tháng " + thang + "/" + nam, e);
         }
-        return 0.0; // Trả về 0 nếu không có dữ liệu hoặc có lỗi
+        // Trả về 0 nếu có lỗi
+        return BigDecimal.ZERO; 
     }
 }

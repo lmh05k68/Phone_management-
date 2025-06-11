@@ -6,189 +6,216 @@ import model.SanPham;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableColumnModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
+import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.util.List;
+import java.util.Locale;
 
-public class ManageProductView extends JFrame {
+public class ManageProductView extends JPanel {
     private static final long serialVersionUID = 1L;
 
+    // --- Hằng số UI cho style nhất quán ---
+    private static final Color BG_COLOR = new Color(245, 245, 245);
+    private static final Color TITLE_COLOR = new Color(0, 102, 204);
+    private static final Color TABLE_HEADER_BG = new Color(32, 136, 203);
+    private static final Color PRIMARY_ACTION_COLOR = new Color(0, 123, 255); // Màu cho Tìm, Lọc
+    private static final Color SECONDARY_ACTION_COLOR = new Color(108, 117, 125); // Màu cho Tải lại
+    private static final Color SUCCESS_COLOR = new Color(40, 167, 69);      // Màu cho Thêm
+    private static final Color WARNING_COLOR = new Color(255, 193, 7);      // Màu cho Sửa
+    private static final Color DANGER_COLOR = new Color(220, 53, 69);       // Màu cho Xóa
+
+    // --- Components ---
     private JTable table;
     private DefaultTableModel tableModel;
-    private ManageProduct controller;
     private JTextField tfSearch;
     private JComboBox<String> cbHangSX;
+    private TableRowSorter<DefaultTableModel> sorter;
+    
+    // --- Controller ---
+    private final ManageProduct controller;
 
     public ManageProductView() {
-        setTitle("Quản Lý Sản Phẩm");
-        setSize(1050, 700); // Kích thước có thể điều chỉnh
-        setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        // Thiết lập layout và border cho JPanel này
+        setLayout(new BorderLayout(10, 10));
+        setBorder(new EmptyBorder(15, 20, 15, 20));
+        setBackground(BG_COLOR);
 
         controller = new ManageProduct(this);
-
         initUI();
-        controller.loadSanPhamList();
+        controller.loadProducts();
         loadHangSXComboBox();
     }
 
     private void initUI() {
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-        mainPanel.setBorder(new EmptyBorder(15, 15, 15, 15)); // Padding chung
+        // --- Panel Header (chứa tiêu đề và các hành động trên cùng) ---
+        add(createHeaderPanel(), BorderLayout.NORTH);
 
-        // --- Header Panel (Title + Search/Filter) ---
-        JPanel headerPanel = new JPanel(new BorderLayout(0, 10)); // Khoảng cách giữa title và filter
+        // --- Panel Bảng Dữ Liệu ---
+        tableModel = new DefaultTableModel(new String[]{
+                "Mã SP", "Tên Sản Phẩm", "Màu Sắc", "Giá Niêm Yết", "Nước SX", "Hãng SX", "Tồn Kho"
+        }, 0) {
+            private static final long serialVersionUID = 1L;
+            @Override
+            public boolean isCellEditable(int row, int column) { return false; }
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                if (columnIndex == 0 || columnIndex == 6) return Integer.class;
+                if (columnIndex == 3) return BigDecimal.class;
+                return String.class;
+            }
+        };
+        table = new JTable(tableModel);
+        sorter = new TableRowSorter<>(tableModel);
+        table.setRowSorter(sorter);
 
-        JLabel lblTitle = new JLabel("Danh Sách Sản Phẩm", SwingConstants.CENTER);
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 24));
-        lblTitle.setBorder(new EmptyBorder(5, 0, 10, 0));
+        styleTable(table);
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(224, 224, 224)));
+        add(scrollPane, BorderLayout.CENTER);
+
+        // --- Panel các nút chức năng ở dưới ---
+        add(createBottomButtonPanel(), BorderLayout.SOUTH);
+    }
+    
+    private JPanel createHeaderPanel() {
+        JPanel headerPanel = new JPanel(new BorderLayout(0, 15));
+        headerPanel.setOpaque(false);
+
+        JLabel lblTitle = new JLabel("Quản Lý Sản Phẩm", SwingConstants.CENTER);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        lblTitle.setForeground(TITLE_COLOR);
         headerPanel.add(lblTitle, BorderLayout.NORTH);
 
-        JPanel topActionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5)); // Căn giữa các control
-        tfSearch = new JTextField(25); // Tăng kích thước một chút
+        JPanel topActionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+        topActionPanel.setOpaque(false);
+        
+        // --- Cải tiến các nút ở đây ---
+        tfSearch = new JTextField(25);
         tfSearch.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        JButton btnTim = createStyledButton("Tìm kiếm tên");
-        btnTim.setBackground(new Color(0, 123, 255)); // Màu xanh dương
-        btnTim.setForeground(Color.WHITE);
 
+        JButton btnTim = createStyledButton("Tìm", PRIMARY_ACTION_COLOR);
+        
         cbHangSX = new JComboBox<>();
         cbHangSX.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        cbHangSX.setPreferredSize(new Dimension(200, tfSearch.getPreferredSize().height));
-        JButton btnLoc = createStyledButton("Lọc theo hãng");
-        btnLoc.setBackground(new Color(0, 123, 255));
-        btnLoc.setForeground(Color.WHITE);
-
-        JButton btnTaiLai = createStyledButton("Tải lại DS");
-        btnTaiLai.setBackground(new Color(23, 162, 184)); // Màu xanh ngọc
-        btnTaiLai.setForeground(Color.WHITE);
-
-
-        topActionPanel.add(new JLabel("Tìm tên SP:"));
+        cbHangSX.setPreferredSize(new Dimension(180, btnTim.getPreferredSize().height));
+        
+        JButton btnLoc = createStyledButton("Lọc", PRIMARY_ACTION_COLOR);
+        JButton btnTaiLai = createStyledButton("Tải lại", SECONDARY_ACTION_COLOR);
+        
+        topActionPanel.add(new JLabel("Tìm theo tên:"));
         topActionPanel.add(tfSearch);
         topActionPanel.add(btnTim);
         topActionPanel.add(Box.createHorizontalStrut(20));
-        topActionPanel.add(new JLabel("Hãng SX:"));
+        topActionPanel.add(new JLabel("Lọc theo hãng:"));
         topActionPanel.add(cbHangSX);
         topActionPanel.add(btnLoc);
         topActionPanel.add(btnTaiLai);
         headerPanel.add(topActionPanel, BorderLayout.CENTER);
+        
+        // Gán sự kiện cho các nút trên cùng
+        btnTim.addActionListener(e -> controller.searchByName(tfSearch.getText()));
+        btnLoc.addActionListener(e -> controller.filterByBrand((String) cbHangSX.getSelectedItem()));
+        btnTaiLai.addActionListener(e -> {
+            controller.loadProducts();
+            tfSearch.setText("");
+            if (cbHangSX.getItemCount() > 0) cbHangSX.setSelectedIndex(0);
+        });
 
-        mainPanel.add(headerPanel, BorderLayout.NORTH);
-
-        // --- Table Panel ---
-        tableModel = new DefaultTableModel(new String[]{
-                "Mã SP", "Tên SP", "Màu", "Đơn giá (VNĐ)", "Nước SX", "Hãng SX", "Tồn kho"
-        }, 0) {
-            private static final long serialVersionUID = 1L;
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-        table = new JTable(tableModel);
-        styleTable(table);
-        JScrollPane scrollPane = new JScrollPane(table);
-        mainPanel.add(scrollPane, BorderLayout.CENTER);
-
-        // --- Bottom Button Panel ---
-        JPanel bottomButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
-        JButton btnThem = createStyledButton("Thêm Sản Phẩm");
-        btnThem.setBackground(new Color(40, 167, 69)); // Xanh lá
-        btnThem.setForeground(Color.WHITE);
-
-        JButton btnSua = createStyledButton("Sửa Sản Phẩm");
-        btnSua.setBackground(new Color(255, 193, 7)); // Vàng
-        btnSua.setForeground(Color.BLACK); // Chữ đen trên nền vàng
-
-        JButton btnXoa = createStyledButton("Xóa Sản Phẩm");
-        btnXoa.setBackground(new Color(220, 53, 69)); // Đỏ
-        btnXoa.setForeground(Color.WHITE);
-
-        JButton btnBack = createStyledButton("Trở về Admin");
-        btnBack.setBackground(new Color(108, 117, 125)); // Xám
-        btnBack.setForeground(Color.WHITE);
-
+        return headerPanel;
+    }
+    
+    private JPanel createBottomButtonPanel() {
+        JPanel bottomButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        bottomButtonPanel.setOpaque(false);
+        
+        JButton btnThem = createStyledButton("Thêm Sản Phẩm", SUCCESS_COLOR);
+        JButton btnSua = createStyledButton("Sửa Sản Phẩm", WARNING_COLOR);
+        JButton btnXoa = createStyledButton("Xóa Sản Phẩm", DANGER_COLOR);
+        
         bottomButtonPanel.add(btnThem);
         bottomButtonPanel.add(btnSua);
         bottomButtonPanel.add(btnXoa);
-        bottomButtonPanel.add(btnBack);
-        mainPanel.add(bottomButtonPanel, BorderLayout.SOUTH);
 
-        setContentPane(mainPanel);
-
-        // --- Action Listeners ---
-        btnTim.addActionListener(e -> {
-            String keyword = tfSearch.getText().trim();
-            if (keyword.isEmpty()) {
-                controller.loadSanPhamList();
-                if(cbHangSX.getItemCount() > 0) cbHangSX.setSelectedIndex(0); // Reset về "Tất cả"
-            } else {
-                controller.searchSanPhamByTen(keyword);
-            }
-        });
-
-        btnLoc.addActionListener(e -> {
-            String hangSX = (String) cbHangSX.getSelectedItem();
-            if (hangSX != null && "Tất cả".equals(hangSX)) {
-                controller.loadSanPhamList();
-                tfSearch.setText("");
-            } else if (hangSX != null) {
-                controller.filterSanPhamByHangSX(hangSX);
-            }
-        });
-
-        btnTaiLai.addActionListener(e -> {
-            controller.loadSanPhamList();
-            tfSearch.setText("");
-             if(cbHangSX.getItemCount() > 0) cbHangSX.setSelectedIndex(0);
-        });
-
+        // Gán sự kiện cho các nút dưới cùng
         btnThem.addActionListener(e -> showAddForm());
         btnSua.addActionListener(e -> showEditForm());
         btnXoa.addActionListener(e -> deleteSelectedProduct());
-        btnBack.addActionListener(e -> {
-            dispose();
-            new AdminView().setVisible(true); // Tạo mới AdminView khi quay lại
-        });
+        
+        return bottomButtonPanel;
     }
 
     private void styleTable(JTable tbl) {
         tbl.setFillsViewportHeight(true);
         tbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        tbl.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-        tbl.setRowHeight(28);
+        tbl.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 15));
+        tbl.getTableHeader().setOpaque(false);
+        tbl.getTableHeader().setBackground(TABLE_HEADER_BG);
+        tbl.getTableHeader().setForeground(Color.WHITE);
+        tbl.setRowHeight(30);
         tbl.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tbl.getTableHeader().setReorderingAllowed(false);
-        tbl.setAutoCreateRowSorter(true);
+        tbl.setShowGrid(true);
+        tbl.setGridColor(new Color(224, 224, 224));
 
-        tbl.getColumnModel().getColumn(0).setPreferredWidth(80);
-        tbl.getColumnModel().getColumn(1).setPreferredWidth(250);
-        tbl.getColumnModel().getColumn(2).setPreferredWidth(100);
-        tbl.getColumnModel().getColumn(3).setPreferredWidth(120);
-        tbl.getColumnModel().getColumn(4).setPreferredWidth(100);
-        tbl.getColumnModel().getColumn(5).setPreferredWidth(120);
-        tbl.getColumnModel().getColumn(6).setPreferredWidth(80);
+        // Renderer và định dạng cột
+        tbl.getColumnModel().getColumn(3).setCellRenderer(new CurrencyRenderer());
+        TableColumnModel columnModel = tbl.getColumnModel();
+        columnModel.getColumn(0).setMaxWidth(80);
+        columnModel.getColumn(1).setPreferredWidth(300);
+        columnModel.getColumn(2).setPreferredWidth(100);
+        columnModel.getColumn(3).setPreferredWidth(150);
+        columnModel.getColumn(4).setPreferredWidth(120);
+        columnModel.getColumn(5).setPreferredWidth(120);
+        columnModel.getColumn(6).setPreferredWidth(80);
     }
-
-    private JButton createStyledButton(String text) {
+    
+    /**
+    * Tối ưu hóa phương thức tạo nút: linh hoạt, có hiệu ứng hover.
+    */
+    private JButton createStyledButton(String text, Color backgroundColor) {
         JButton btn = new JButton(text);
         btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btn.setFocusPainted(false);
-        // Màu nền và chữ sẽ được đặt riêng cho từng nút
-        btn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.DARK_GRAY, 1), // Viền chung
-                new EmptyBorder(10, 25, 10, 25) // Padding
-        ));
+        btn.setBackground(backgroundColor);
+        btn.setForeground(Color.WHITE);
+
+        // Nút màu vàng chữ đen cho dễ đọc
+        if (backgroundColor.equals(WARNING_COLOR)) {
+            btn.setForeground(Color.BLACK);
+        }
+
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        // Dùng padding thay vì setPreferredSize để nút linh hoạt
+        btn.setBorder(new EmptyBorder(10, 20, 10, 20));
+        
+        // Thêm hiệu ứng hover
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                btn.setBackground(backgroundColor.brighter());
+            }
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                btn.setBackground(backgroundColor);
+            }
+        });
+        
         return btn;
     }
 
     public void updateTable(List<SanPham> list) {
-        tableModel.setRowCount(0);
+         tableModel.setRowCount(0);
         if (list != null) {
             for (SanPham sp : list) {
                 tableModel.addRow(new Object[]{
-                        sp.getMaSP(), sp.getTenSP(), sp.getMau(),
-                        sp.getDonGia(), sp.getNuocSX(), sp.getHangSX(), sp.getSoLuong()
+                        sp.getMaSP(),
+                        sp.getTenSP(),
+                        sp.getMau(),
+                        sp.getGiaNiemYet(),
+                        sp.getNuocSX(),
+                        sp.getHangSX(),
+                        sp.getSoLuongTon() // Giả sử có phương thức này trong model SanPham
                 });
             }
         }
@@ -197,93 +224,39 @@ public class ManageProductView extends JFrame {
     private void loadHangSXComboBox() {
         cbHangSX.removeAllItems();
         cbHangSX.addItem("Tất cả");
-        List<String> hangSXList = controller.getAllHangSX();
+        List<String> hangSXList = controller.getAllBrands();
         if (hangSXList != null) {
             for (String hsx : hangSXList) {
-                if (hsx != null && !hsx.trim().isEmpty()) { // Bỏ qua hãng rỗng
-                    cbHangSX.addItem(hsx);
-                }
+                cbHangSX.addItem(hsx);
             }
         }
     }
-
+    
+    // --- Các phương thức xử lý form và thông báo (giữ nguyên logic) ---
     private void showAddForm() {
-        JTextField tfTen = new JTextField(20);
-        JTextField tfMau = new JTextField(20);
-        JTextField tfNuocSX = new JTextField(20);
-        JTextField tfHangSX = new JTextField(20);
-
-        JSpinner spinnerSoLuong = new JSpinner(new SpinnerNumberModel(
-            Integer.valueOf(0), Integer.valueOf(0), Integer.valueOf(9999), Integer.valueOf(1)
-        ));
-        JSpinner spinnerDonGia = new JSpinner(new SpinnerNumberModel(
-            Double.valueOf(0.0), Double.valueOf(0.0), Double.valueOf(1_000_000_000.0), Double.valueOf(1000.0)
-        ));
-        JSpinner.NumberEditor editorDonGia = new JSpinner.NumberEditor(spinnerDonGia, "#,##0"); // Bỏ .00 nếu muốn số nguyên
-        spinnerDonGia.setEditor(editorDonGia);
-
-        // Panel cho form, sử dụng GridBagLayout để căn chỉnh tốt hơn
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weightx = 1.0;
-
-        gbc.gridx = 0; gbc.gridy = 0; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Tên SP*:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 0; gbc.anchor = GridBagConstraints.LINE_START; panel.add(tfTen, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 1; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Màu:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 1; gbc.anchor = GridBagConstraints.LINE_START; panel.add(tfMau, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 2; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Đơn giá (VNĐ)*:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 2; gbc.anchor = GridBagConstraints.LINE_START; panel.add(spinnerDonGia, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 3; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Nước SX:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 3; gbc.anchor = GridBagConstraints.LINE_START; panel.add(tfNuocSX, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 4; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Hãng SX:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 4; gbc.anchor = GridBagConstraints.LINE_START; panel.add(tfHangSX, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 5; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Số lượng tồn*:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 5; gbc.anchor = GridBagConstraints.LINE_START; panel.add(spinnerSoLuong, gbc);
-
-
+        JPanel panel = createFormPanel(null);
         int result = JOptionPane.showConfirmDialog(this, panel, "Thêm Sản Phẩm Mới",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-
         if (result == JOptionPane.OK_OPTION) {
             try {
-                String tenSP = tfTen.getText().trim();
-                if (tenSP.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Tên sản phẩm không được để trống.", "Lỗi Nhập Liệu", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                double donGia = ((Number)spinnerDonGia.getValue()).doubleValue();
-                int soLuong = ((Number)spinnerSoLuong.getValue()).intValue();
-
-                if (donGia <= 0) {
-                     JOptionPane.showMessageDialog(this, "Đơn giá phải lớn hơn 0.", "Lỗi Nhập Liệu", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                 if (soLuong < 0) {
-                     JOptionPane.showMessageDialog(this, "Số lượng tồn không được âm.", "Lỗi Nhập Liệu", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                SanPham sp = new SanPham(
-                        tenSP, tfMau.getText().trim(), donGia,
-                        tfNuocSX.getText().trim(), tfHangSX.getText().trim(), soLuong
+                // Lấy component một cách an toàn hơn
+                Component[] components = panel.getComponents();
+                JTextField tfTen = (JTextField) components[1];
+                JTextField tfMau = (JTextField) components[3];
+                JSpinner spinnerDonGia = (JSpinner) components[5];
+                JTextField tfNuocSX = (JTextField) components[7];
+                JTextField tfHangSX = (JTextField) components[9];
+                
+                BigDecimal giaNiemYet = (BigDecimal) spinnerDonGia.getValue();
+                controller.addProduct(
+                    tfTen.getText().trim(),
+                    tfMau.getText().trim(),
+                    giaNiemYet,
+                    tfNuocSX.getText().trim(),
+                    tfHangSX.getText().trim()
                 );
-
-                if (controller.insertSanPham(sp)) {
-                    JOptionPane.showMessageDialog(this, "Thêm sản phẩm thành công!", "Thành Công", JOptionPane.INFORMATION_MESSAGE);
-                } else {
-                    JOptionPane.showMessageDialog(this, "Thêm sản phẩm thất bại. Tên sản phẩm có thể đã tồn tại hoặc lỗi từ CSDL.", "Thất Bại", JOptionPane.ERROR_MESSAGE);
-                }
             } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Dữ liệu nhập không hợp lệ: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
-                e.printStackTrace();
+                showMessage("Đã xảy ra lỗi khi xử lý dữ liệu: " + e.getMessage(), false);
             }
         }
     }
@@ -291,125 +264,124 @@ public class ManageProductView extends JFrame {
     private void showEditForm() {
         int selectedRowInView = table.getSelectedRow();
         if (selectedRowInView == -1) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một sản phẩm từ bảng để sửa.", "Chưa Chọn Sản Phẩm", JOptionPane.WARNING_MESSAGE);
+            showMessage("Vui lòng chọn một sản phẩm từ bảng để sửa.", false);
             return;
         }
         int modelRow = table.convertRowIndexToModel(selectedRowInView);
+        SanPham spToEdit = controller.getProductById((int) tableModel.getValueAt(modelRow, 0));
+        
+        if (spToEdit == null) {
+            showMessage("Không tìm thấy thông tin sản phẩm.", false);
+            return;
+        }
 
-        int maSP = (Integer) tableModel.getValueAt(modelRow, 0);
-        String tenSPBanDau = tableModel.getValueAt(modelRow, 1).toString();
-        String mauBanDau = tableModel.getValueAt(modelRow, 2).toString();
-        double donGiaBanDau = (Double) tableModel.getValueAt(modelRow, 3);
-        String nuocSXBanDau = tableModel.getValueAt(modelRow, 4).toString();
-        String hangSXBanDau = tableModel.getValueAt(modelRow, 5) != null ? tableModel.getValueAt(modelRow, 5).toString() : "";
-        int soLuongBanDau = (Integer) tableModel.getValueAt(modelRow, 6);
-
-        JTextField tfTen = new JTextField(tenSPBanDau, 20);
-        JTextField tfMau = new JTextField(mauBanDau, 20);
-        JTextField tfNuocSX = new JTextField(nuocSXBanDau, 20);
-        JTextField tfHangSX = new JTextField(hangSXBanDau, 20);
-
-        JSpinner spinnerSoLuong = new JSpinner(new SpinnerNumberModel(
-            Integer.valueOf(soLuongBanDau), Integer.valueOf(0), Integer.valueOf(9999), Integer.valueOf(1)
-        ));
-        JSpinner spinnerDonGia = new JSpinner(new SpinnerNumberModel(
-            Double.valueOf(donGiaBanDau), Double.valueOf(0.0), Double.valueOf(1_000_000_000.0), Double.valueOf(1000.0)
-        ));
-        JSpinner.NumberEditor editorDonGia = new JSpinner.NumberEditor(spinnerDonGia, "#,##0");
-        spinnerDonGia.setEditor(editorDonGia);
-
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weightx = 1.0;
-
-        gbc.gridx = 0; gbc.gridy = 0; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Mã SP:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 0; gbc.anchor = GridBagConstraints.LINE_START;
-        JLabel lblMaSPValue = new JLabel(String.valueOf(maSP));
-        lblMaSPValue.setFont(tfTen.getFont().deriveFont(Font.BOLD));
-        panel.add(lblMaSPValue, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 1; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Tên SP*:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 1; gbc.anchor = GridBagConstraints.LINE_START; panel.add(tfTen, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 2; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Màu:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 2; gbc.anchor = GridBagConstraints.LINE_START; panel.add(tfMau, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 3; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Đơn giá (VNĐ)*:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 3; gbc.anchor = GridBagConstraints.LINE_START; panel.add(spinnerDonGia, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 4; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Nước SX:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 4; gbc.anchor = GridBagConstraints.LINE_START; panel.add(tfNuocSX, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 5; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Hãng SX:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 5; gbc.anchor = GridBagConstraints.LINE_START; panel.add(tfHangSX, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 6; gbc.anchor = GridBagConstraints.LINE_END; panel.add(new JLabel("Số lượng tồn*:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 6; gbc.anchor = GridBagConstraints.LINE_START; panel.add(spinnerSoLuong, gbc);
-
-        int result = JOptionPane.showConfirmDialog(this, panel, "Sửa Thông Tin Sản Phẩm (Mã: " + maSP + ")",
+        JPanel panel = createFormPanel(spToEdit);
+        int result = JOptionPane.showConfirmDialog(this, panel, "Sửa Thông Tin Sản Phẩm (Mã: " + spToEdit.getMaSP() + ")",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-
         if (result == JOptionPane.OK_OPTION) {
-            try {
-                String tenSPMoi = tfTen.getText().trim();
-                if (tenSPMoi.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Tên sản phẩm không được để trống.", "Lỗi Nhập Liệu", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                double donGiaMoi = ((Number)spinnerDonGia.getValue()).doubleValue();
-                int soLuongMoi = ((Number)spinnerSoLuong.getValue()).intValue();
-
-                if (donGiaMoi <= 0 ) {
-                     JOptionPane.showMessageDialog(this, "Đơn giá phải lớn hơn 0.", "Lỗi Nhập Liệu", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                if (soLuongMoi < 0) {
-                     JOptionPane.showMessageDialog(this, "Số lượng tồn không được âm.", "Lỗi Nhập Liệu", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                SanPham sp = new SanPham(
-                        maSP, tenSPMoi, tfMau.getText().trim(), donGiaMoi,
-                        tfNuocSX.getText().trim(), tfHangSX.getText().trim(), soLuongMoi
+             try {
+                Component[] components = panel.getComponents();
+                JTextField tfTen = (JTextField) components[3];
+                JTextField tfMau = (JTextField) components[5];
+                JSpinner spinnerDonGia = (JSpinner) components[7];
+                JTextField tfNuocSX = (JTextField) components[9];
+                JTextField tfHangSX = (JTextField) components[11];
+                BigDecimal giaNiemYetMoi = (BigDecimal) spinnerDonGia.getValue();
+                
+                controller.updateProduct(spToEdit.getMaSP(),
+                    tfTen.getText().trim(),
+                    tfMau.getText().trim(),
+                    giaNiemYetMoi,
+                    tfNuocSX.getText().trim(),
+                    tfHangSX.getText().trim()
                 );
-
-                if (controller.updateSanPham(sp)) {
-                    JOptionPane.showMessageDialog(this, "Cập nhật sản phẩm thành công!", "Thành Công", JOptionPane.INFORMATION_MESSAGE);
-                } else {
-                    JOptionPane.showMessageDialog(this, "Cập nhật sản phẩm thất bại.", "Thất Bại", JOptionPane.ERROR_MESSAGE);
-                }
             } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Dữ liệu nhập không hợp lệ: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
-                e.printStackTrace();
+                showMessage("Đã xảy ra lỗi khi xử lý dữ liệu: " + e.getMessage(), false);
             }
         }
+    }
+    
+    private JPanel createFormPanel(SanPham sp) {
+        // Thay thế GridBagLayout bằng GridLayout để lấy component theo index an toàn hơn
+        JPanel formContentPanel = new JPanel(new GridLayout(0, 2, 10, 10));
+        formContentPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        String tenSP = (sp != null) ? sp.getTenSP() : "";
+        String mau = (sp != null) ? sp.getMau() : "";
+        BigDecimal gia = (sp != null) ? sp.getGiaNiemYet() : BigDecimal.ZERO;
+        String nuocSX = (sp != null) ? sp.getNuocSX() : "";
+        String hangSX = (sp != null) ? sp.getHangSX() : "";
+        
+        JTextField tfTen = new JTextField(tenSP, 20);
+        JTextField tfMau = new JTextField(mau, 20);
+        JTextField tfNuocSX = new JTextField(nuocSX, 20);
+        JTextField tfHangSX = new JTextField(hangSX, 20);
+        
+        SpinnerNumberModel giaModel = new SpinnerNumberModel(gia, BigDecimal.ZERO, new BigDecimal("9999999999"), new BigDecimal("100000"));
+        JSpinner spinnerDonGia = new JSpinner(giaModel);
+        JSpinner.NumberEditor editorDonGia = new JSpinner.NumberEditor(spinnerDonGia, "#,##0.##");
+        spinnerDonGia.setEditor(editorDonGia);
+
+        if(sp != null) {
+            formContentPanel.add(createLabel("Mã SP:"));
+            formContentPanel.add(new JLabel(String.valueOf(sp.getMaSP())));
+        }
+        formContentPanel.add(createLabel("Tên SP*:"));
+        formContentPanel.add(tfTen);
+        formContentPanel.add(createLabel("Màu:"));
+        formContentPanel.add(tfMau);
+        formContentPanel.add(createLabel("Giá Niêm Yết*:"));
+        formContentPanel.add(spinnerDonGia);
+        formContentPanel.add(createLabel("Nước SX:"));
+        formContentPanel.add(tfNuocSX);
+        formContentPanel.add(createLabel("Hãng SX:"));
+        formContentPanel.add(tfHangSX);
+        
+        return formContentPanel;
+    }
+    
+    private JLabel createLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        return label;
     }
 
     private void deleteSelectedProduct() {
         int selectedRowInView = table.getSelectedRow();
         if (selectedRowInView == -1) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một sản phẩm từ bảng để xóa.", "Chưa Chọn Sản Phẩm", JOptionPane.WARNING_MESSAGE);
+            showMessage("Vui lòng chọn một sản phẩm từ bảng để xóa.", false);
             return;
         }
         int modelRow = table.convertRowIndexToModel(selectedRowInView);
-        String maSPStr = tableModel.getValueAt(modelRow, 0).toString();
-        String tenSP = tableModel.getValueAt(modelRow, 1).toString();
-
+        int maSP = (int) tableModel.getValueAt(modelRow, 0);
+        String tenSP = (String) tableModel.getValueAt(modelRow, 1);
         int confirm = JOptionPane.showConfirmDialog(this,
-                "Bạn có chắc chắn muốn xóa sản phẩm:\n'" + tenSP + "' (Mã: " + maSPStr + ") không?",
-                "Xác Nhận Xóa Sản Phẩm",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE);
-
+                "Bạn có chắc chắn muốn xóa sản phẩm:\n'" + tenSP + "' (Mã: " + maSP + ") không?",
+                "Xác Nhận Xóa Sản Phẩm", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (confirm == JOptionPane.YES_OPTION) {
-            if (controller.deleteSanPham(maSPStr)) {
-                JOptionPane.showMessageDialog(this, "Xóa sản phẩm thành công!", "Thành Công", JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(this, "Xóa sản phẩm thất bại. Sản phẩm có thể đang được sử dụng trong các hóa đơn hoặc phiếu nhập.", "Thất Bại", JOptionPane.ERROR_MESSAGE);
-            }
+            controller.deleteProduct(maSP);
         }
     }
+    
+    public void showMessage(String message, boolean isSuccess) {
+        if (isSuccess) {
+            JOptionPane.showMessageDialog(this, message, "Thành Công", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this, message, "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+}
+
+class CurrencyRenderer extends javax.swing.table.DefaultTableCellRenderer {
+ private static final long serialVersionUID = 1L;
+ private static final NumberFormat FORMAT = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
+
+ @Override
+ public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+     if (value instanceof Number) {
+         value = FORMAT.format(value);
+     }
+     setHorizontalAlignment(SwingConstants.RIGHT); 
+     return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+ }
 }

@@ -2,46 +2,82 @@ package controller.admin;
 
 import model.NhanVien;
 import query.NhanVienQuery;
+import view.admin.ManageEmployeeView;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ManageEmployee {
+    
+    private final ManageEmployeeView view;
+    private List<NhanVien> employeeList; 
+    public ManageEmployee(ManageEmployeeView view) {
+        this.view = view;
+        this.employeeList = new ArrayList<>();
+    }
+    public void loadEmployees() {
+        this.employeeList = NhanVienQuery.getAll();
+        view.updateTable(this.employeeList);
+    }
+    public void searchEmployees(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            view.updateTable(this.employeeList); // Nếu từ khóa rỗng, hiển thị lại toàn bộ danh sách
+            return;
+        }
+        
+        String lowerCaseKeyword = keyword.trim().toLowerCase();
+        
+        List<NhanVien> filteredList = this.employeeList.stream()
+                .filter(nv -> 
+                    (nv.getTenNV() != null && nv.getTenNV().toLowerCase().contains(lowerCaseKeyword)) ||
+                    (nv.getSoDienThoai() != null && nv.getSoDienThoai().contains(lowerCaseKeyword))
+                )
+                .collect(Collectors.toList());
+        
+        view.updateTable(filteredList);
+    }
+    public void addEmployee(String tenNV, LocalDate ngaySinh, BigDecimal luong, String sdt) {
+        if (tenNV == null || tenNV.trim().isEmpty() || sdt == null || sdt.trim().isEmpty()) {
+            view.showMessage("Tên và Số điện thoại không được để trống.", false);
+            return;
+        }
+        NhanVien newNv = new NhanVien(tenNV, ngaySinh, luong, sdt);
+        boolean success = NhanVienQuery.insert(newNv);
 
-    public List<NhanVien> getAllNhanVien() {
-        return NhanVienQuery.getAll();
+        if (success) {
+            view.showMessage("Thêm nhân viên thành công!", true);
+            loadEmployees(); // Tải lại danh sách sau khi thêm thành công
+        } else {
+            view.showMessage("Thêm thất bại. Số điện thoại có thể đã tồn tại.", false);
+        }
     }
+    public void updateEmployee(int maNV, String tenNV, LocalDate ngaySinh, BigDecimal luong, String sdt) {
+        if (tenNV == null || tenNV.trim().isEmpty() || sdt == null || sdt.trim().isEmpty()) {
+            view.showMessage("Tên và Số điện thoại không được để trống.", false);
+            return;
+        }
+        
+        NhanVien updatedNv = new NhanVien(maNV, tenNV, ngaySinh, luong, sdt);
+        boolean success = NhanVienQuery.update(updatedNv);
 
-    public List<NhanVien> searchNhanVien(String keyword, String type) {
-        return NhanVienQuery.search(keyword, type);
+        if (success) {
+            view.showMessage("Cập nhật thành công!", true);
+            loadEmployees(); // Tải lại danh sách sau khi cập nhật thành công
+        } else {
+            view.showMessage("Cập nhật thất bại. Số điện thoại có thể đã được sử dụng.", false);
+        }
     }
-    public boolean insertNhanVien(NhanVien nv) {
-        if (nv.getTenNV() == null || nv.getTenNV().trim().isEmpty()) {
-            System.err.println("CONTROLLER_ManageEmployee (insert): Tên nhân viên không được để trống.");
-            return false;
-        }
-        if (nv.getSoDienThoai() == null || nv.getSoDienThoai().trim().isEmpty()){
-            System.err.println("CONTROLLER_ManageEmployee (insert): Số điện thoại không được để trống.");
-            return false;
-        }
-        return NhanVienQuery.insert(nv);
-    }
-    public boolean updateNhanVien(NhanVien nv) {
-        if (!NhanVienQuery.exists(nv.getMaNV())) {
-            System.err.println("CONTROLLER_ManageEmployee (update): Không tìm thấy nhân viên với Mã NV: " + nv.getMaNV());
-            return false;
-        }
-        return NhanVienQuery.update(nv);
-    }
-    public boolean deleteNhanVien(String maNVStr) {
-        if (maNVStr == null || maNVStr.trim().isEmpty()) {
-            System.err.println("CONTROLLER_ManageEmployee (delete): Mã nhân viên không được để trống.");
-            return false;
-        }
-        try {
-            int maNV = Integer.parseInt(maNVStr.trim());
-            return NhanVienQuery.delete(maNV);
-        } catch (NumberFormatException e) {
-            System.err.println("CONTROLLER_ManageEmployee (delete): Mã nhân viên không hợp lệ (không phải số): " + maNVStr);
-            return false;
+    public void deleteEmployee(int maNV) {
+        boolean success = NhanVienQuery.delete(maNV);
+        
+        if (success) {
+            view.showMessage("Xóa nhân viên thành công!", true);
+            loadEmployees(); // Tải lại danh sách sau khi xóa thành công
+        } else {
+            view.showMessage("Xóa thất bại. Nhân viên có thể đang liên kết với các hóa đơn hoặc tài khoản.", false);
         }
     }
 }

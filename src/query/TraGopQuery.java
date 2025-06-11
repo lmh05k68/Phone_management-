@@ -2,177 +2,124 @@ package query;
 
 import dbConnection.DBConnection;
 import model.TraGop;
-
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TraGopQuery {
+
+    private static final Logger logger = Logger.getLogger(TraGopQuery.class.getName());
+    private static final String SQLSTATE_UNIQUE_VIOLATION = "23505"; // Mã lỗi UNIQUE của PostgreSQL
+
+    /**
+     * *** PHƯƠNG THỨC BỊ THIẾU ĐÃ ĐƯỢC THÊM LẠI ***
+     * Thêm một phiếu trả góp mới vào CSDL và trả về ID được tạo tự động.
+     * @param tg Đối tượng TraGop chứa thông tin cần thêm.
+     * @return ID của phiếu mới nếu thành công, ngược lại trả về null.
+     */
     public static Integer insertPhieuTraGopAndGetId(TraGop tg) {
         String sql = "INSERT INTO PhieuTraGop (MaHDX, SoThang, LaiSuat, TienGoc, NgayBatDau, DaThanhToan) VALUES (?, ?, ?, ?, ?, ?)";
-        ResultSet generatedKeys = null;
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            stmt.setInt(1, tg.getMaHDX());         // MaHDX là int
-            stmt.setInt(2, tg.getSoThang());
-            stmt.setDouble(3, tg.getLaiSuat());
-            stmt.setDouble(4, tg.getTienGoc());
-            stmt.setDate(5, Date.valueOf(tg.getNgayBatDau())); // Chuyển LocalDate sang java.sql.Date
-            stmt.setBoolean(6, tg.isDaThanhToan());
+            pstmt.setInt(1, tg.getMaHDX());
+            pstmt.setInt(2, tg.getSoThang());
+            pstmt.setBigDecimal(3, tg.getLaiSuat());
+            pstmt.setBigDecimal(4, tg.getTienGoc());
+            pstmt.setDate(5, Date.valueOf(tg.getNgayBatDau()));
+            pstmt.setBoolean(6, tg.isDaThanhToan());
 
-            int affectedRows = stmt.executeUpdate();
+            int affectedRows = pstmt.executeUpdate();
             if (affectedRows == 0) {
-                System.err.println("TraGopQuery (insertAndGetId): Chèn phiếu trả góp thất bại, không có hàng nào được thêm.");
-                return null; // Hoặc ném SQLException tùy theo cách xử lý lỗi mong muốn
+                logger.warning("Thêm phiếu trả góp thất bại, không có hàng nào được thêm.");
+                return null;
             }
 
-            generatedKeys = stmt.getGeneratedKeys();
-            if (generatedKeys.next()) {
-                int id = generatedKeys.getInt(1); // Lấy MaPhieuTG tự sinh
-                System.out.println("TraGopQuery (insertAndGetId): Phiếu trả góp được chèn với MaPhieuTG: " + id);
-                return id;
+            try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    return generatedKeys.getInt(1); // Trả về ID thành công
+                }
+            }
+        } catch (SQLException e) {
+            // Xử lý lỗi cụ thể nếu hóa đơn đã được đăng ký trả góp (ràng buộc UNIQUE)
+            if (SQLSTATE_UNIQUE_VIOLATION.equals(e.getSQLState())) {
+                logger.log(Level.WARNING, "Lỗi thêm phiếu trả góp: Hóa đơn " + tg.getMaHDX() + " đã được đăng ký trả góp.");
             } else {
-                System.err.println("TraGopQuery (insertAndGetId): Chèn phiếu trả góp thành công nhưng không lấy được ID tự sinh.");
-                return null; // Hoặc ném SQLException
-            }
-        } catch (SQLException e) {
-            System.err.println("TraGopQuery (insertAndGetId): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
-            return null; // Hoặc ném SQLException
-        } finally {
-            if (generatedKeys != null) {
-                try {
-                    generatedKeys.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
+                logger.log(Level.SEVERE, "Lỗi SQL khi thêm phiếu trả góp.", e);
             }
         }
+        return null; // Trả về null nếu có lỗi hoặc không lấy được ID
     }
 
     /**
-     * Lấy tất cả các phiếu trả góp từ cơ sở dữ liệu.
-     * @return Danh sách các đối tượng TraGop.
+     * Lấy danh sách phiếu trả góp đã được lọc theo các tiêu chí.
+     * @param maHDX       Mã hóa đơn cần tìm (nếu không tìm, để là null).
+     * @param isCompleted Trạng thái hoàn thành (true/false), nếu không lọc theo trạng thái, để là null.
+     * @return Danh sách các phiếu trả góp thỏa mãn điều kiện.
      */
-    public static List<TraGop> getAllPhieuTraGop() {
+    public static List<TraGop> getFiltered(Integer maHDX, Boolean isCompleted) {
         List<TraGop> list = new ArrayList<>();
-        String sql = "SELECT MaPhieuTG, MaHDX, SoThang, LaiSuat, TienGoc, NgayBatDau, DaThanhToan FROM PhieuTraGop ORDER BY NgayBatDau DESC";
+        StringBuilder sql = new StringBuilder(
+            "SELECT MaPhieuTG, MaHDX, SoThang, LaiSuat, TienGoc, NgayBatDau, DaThanhToan " +
+            "FROM PhieuTraGop WHERE 1=1 "
+        );
+        List<Object> params = new ArrayList<>();
+
+        if (maHDX != null) {
+            sql.append("AND MaHDX = ? ");
+            params.add(maHDX);
+        }
+        if (isCompleted != null) {
+            sql.append("AND DaThanhToan = ? ");
+            params.add(isCompleted);
+        }
+        sql.append("ORDER BY NgayBatDau DESC, MaPhieuTG DESC");
 
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql); // Sử dụng PreparedStatement cho nhất quán
-             ResultSet rs = stmt.executeQuery()) {
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
 
-            while (rs.next()) {
-                TraGop p = new TraGop(
-                        rs.getInt("MaPhieuTG"),      // MaPhieuTG là int
-                        rs.getInt("MaHDX"),          // MaHDX là int
-                        rs.getInt("SoThang"),
-                        rs.getDouble("LaiSuat"),
-                        rs.getDouble("TienGoc"),
-                        rs.getDate("NgayBatDau").toLocalDate(), // Chuyển java.sql.Date sang LocalDate
-                        rs.getBoolean("DaThanhToan")
-                );
-                list.add(p);
+            for (int i = 0; i < params.size(); i++) {
+                pstmt.setObject(i + 1, params.get(i));
             }
-        } catch (SQLException e) {
-            System.err.println("TraGopQuery (getAllPhieuTraGop): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return list;
-    }
 
-    /**
-     * Cập nhật trạng thái DaThanhToan của các phiếu trả góp đã đến hạn thanh toán toàn bộ.
-     * (Ví dụ: Ngày bắt đầu + Số tháng đã qua ngày hiện tại).
-     * Phương thức này nên được gọi định kỳ hoặc bởi một tiến trình nền.
-     */
-    public static void updateTrangThaiTraGopDaHoanThanh() {
-        // Cú pháp cộng tháng vào ngày trong PostgreSQL là `date_column + interval '1 month' * number_of_months`
-        // Hoặc an toàn hơn là dùng hàm `AGE` để so sánh
-        // Ví dụ: WHERE AGE(CURRENT_DATE, NgayBatDau) >= make_interval(months := SoThang)
-        // Hoặc đơn giản hơn (nhưng có thể không chính xác tuyệt đối với ngày cuối tháng):
-        // WHERE NgayBatDau + (SoThang * INTERVAL '1 month') <= CURRENT_DATE
-        // Ví dụ dưới đây dùng cách cộng interval, cần kiểm tra kỹ trên PostgreSQL
-        String sql = "UPDATE PhieuTraGop SET DaThanhToan = TRUE " +
-                     "WHERE DaThanhToan = FALSE AND (NgayBatDau + MAKE_INTERVAL(months => SoThang)) <= CURRENT_DATE";
-
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            int updatedRows = stmt.executeUpdate();
-            System.out.println("TraGopQuery (updateTrangThaiDaHoanThanh): Đã cập nhật trạng thái cho " + updatedRows + " phiếu trả góp đã hoàn thành.");
-        } catch (SQLException e) {
-            System.err.println("TraGopQuery (updateTrangThaiDaHoanThanh): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * Lấy danh sách phiếu trả góp theo Mã Khách Hàng.
-     * Điều này yêu cầu join với bảng HoaDonXuat để lấy MaKH.
-     * @param maKH Mã khách hàng.
-     * @return Danh sách phiếu trả góp của khách hàng đó.
-     */
-    public static List<TraGop> getPhieuTraGopByMaKH(int maKH) {
-        List<TraGop> list = new ArrayList<>();
-        String sql = "SELECT tg.MaPhieuTG, tg.MaHDX, tg.SoThang, tg.LaiSuat, tg.TienGoc, tg.NgayBatDau, tg.DaThanhToan " +
-                     "FROM PhieuTraGop tg " +
-                     "JOIN HoaDonXuat hdx ON tg.MaHDX = hdx.MaHDX " +
-                     "WHERE hdx.MaKH = ? " +
-                     "ORDER BY tg.NgayBatDau DESC";
-
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, maKH);
-            try (ResultSet rs = stmt.executeQuery()) {
+            try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    TraGop p = new TraGop(
-                            rs.getInt("MaPhieuTG"),
-                            rs.getInt("MaHDX"),
-                            rs.getInt("SoThang"),
-                            rs.getDouble("LaiSuat"),
-                            rs.getDouble("TienGoc"),
-                            rs.getDate("NgayBatDau").toLocalDate(),
-                            rs.getBoolean("DaThanhToan")
-                    );
-                    list.add(p);
+                    list.add(mapResultSetToTraGop(rs));
                 }
             }
         } catch (SQLException e) {
-            System.err.println("TraGopQuery (getPhieuTraGopByMaKH): Lỗi SQL cho MaKH " + maKH + ": " + e.getMessage());
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Lỗi khi lấy danh sách phiếu trả góp đã lọc.", e);
         }
         return list;
     }
 
     /**
-     * Lấy thông tin một phiếu trả góp theo Mã Phiếu.
-     * @param maPhieuTG Mã phiếu trả góp.
-     * @return Đối tượng TraGop hoặc null nếu không tìm thấy.
+     * Tự động cập nhật trạng thái của các phiếu trả góp đã hết hạn.
      */
-    public static TraGop getPhieuTraGopById(int maPhieuTG) {
-        String sql = "SELECT MaPhieuTG, MaHDX, SoThang, LaiSuat, TienGoc, NgayBatDau, DaThanhToan " +
-                     "FROM PhieuTraGop WHERE MaPhieuTG = ?";
+    public static void updateCompletedStatus() {
+        String sql = "UPDATE PhieuTraGop SET DaThanhToan = TRUE " +
+                     "WHERE DaThanhToan = FALSE AND (NgayBatDau + (SoThang * INTERVAL '1 month')) < CURRENT_DATE";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, maPhieuTG);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return new TraGop(
-                            rs.getInt("MaPhieuTG"),
-                            rs.getInt("MaHDX"),
-                            rs.getInt("SoThang"),
-                            rs.getDouble("LaiSuat"),
-                            rs.getDouble("TienGoc"),
-                            rs.getDate("NgayBatDau").toLocalDate(),
-                            rs.getBoolean("DaThanhToan")
-                    );
-                }
+             Statement stmt = conn.createStatement()) {
+            int updatedRows = stmt.executeUpdate(sql);
+            if (updatedRows > 0) {
+                logger.info("Đã tự động cập nhật " + updatedRows + " phiếu trả góp đã hoàn thành.");
             }
         } catch (SQLException e) {
-            System.err.println("TraGopQuery (getPhieuTraGopById): Lỗi SQL cho MaPhieuTG " + maPhieuTG + ": " + e.getMessage());
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Lỗi khi tự động cập nhật trạng thái phiếu trả góp.", e);
         }
-        return null;
+    }
+    private static TraGop mapResultSetToTraGop(ResultSet rs) throws SQLException {
+        return new TraGop(
+                rs.getInt("MaPhieuTG"),
+                rs.getInt("MaHDX"),
+                rs.getInt("SoThang"),
+                rs.getBigDecimal("LaiSuat"),
+                rs.getBigDecimal("TienGoc"),
+                rs.getDate("NgayBatDau").toLocalDate(),
+                rs.getBoolean("DaThanhToan")
+        );
     }
 }

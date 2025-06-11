@@ -1,193 +1,152 @@
 package query;
 
-import dbConnection.DBConnection;
+import dbConnection.DBConnection; 
 import model.PhieuBaoHanh;
-
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.Types;
+import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class PhieuBaoHanhQuery {
-
-    public static Integer insertPhieuBaoHanhAndGetId(PhieuBaoHanh pbh) {
-        // Câu lệnh SQL đã đúng, bao gồm MaHDX
-        String sql = "INSERT INTO PhieuBaoHanh (MaSP, NgayNhanSanPham, NgayTraSanPham, MaKH, TrangThai, MaHDX) " +
-                     "VALUES (?, ?, ?, ?, ?, ?)";
-        ResultSet generatedKeys = null;
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-
-            stmt.setInt(1, pbh.getMaSP());
-            stmt.setDate(2, Date.valueOf(pbh.getNgayNhanSanPham()));
-            if (pbh.getNgayTraSanPham() != null) {
-                stmt.setDate(3, Date.valueOf(pbh.getNgayTraSanPham()));
-            } else {
-                stmt.setNull(3, Types.DATE);
-            }
-            stmt.setInt(4, pbh.getMaKH());
-            stmt.setString(5, pbh.getTrangThai());
-
-            // Lấy maHDX từ đối tượng pbh và set cho PreparedStatement
-            if (pbh.getMaHDX() != null) {
-                stmt.setInt(6, pbh.getMaHDX());
-            } else {
-                stmt.setNull(6, Types.INTEGER);
-            }
-
-            int affectedRows = stmt.executeUpdate();
-            if (affectedRows == 0) {
-                System.err.println("PhieuBaoHanhQuery (insertAndGetId): Chèn phiếu bảo hành thất bại.");
-                return null;
-            }
-
-            generatedKeys = stmt.getGeneratedKeys();
-            if (generatedKeys.next()) {
-                int id = generatedKeys.getInt(1);
-                System.out.println("PhieuBaoHanhQuery (insertAndGetId): Phiếu BH được chèn với IDBH: " + id);
-                return id;
-            } else {
-                System.err.println("PhieuBaoHanhQuery (insertAndGetId): Chèn thành công nhưng không lấy được ID.");
-                return null;
-            }
-        } catch (SQLException e) {
-            System.err.println("PhieuBaoHanhQuery (insertAndGetId): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        } finally {
-             if (generatedKeys != null) try { generatedKeys.close(); } catch (SQLException ex) { /* ignored */ }
+    
+    private static final Logger logger = Logger.getLogger(PhieuBaoHanhQuery.class.getName());
+    private static PhieuBaoHanh mapResultSetToPhieuBaoHanh(ResultSet rs) throws SQLException {
+        LocalDate ngayTra = null;
+        Date sqlNgayTra = rs.getDate("ngaytrasanpham");
+        if (!rs.wasNull()) {
+            ngayTra = sqlNgayTra.toLocalDate();
         }
+
+        PhieuBaoHanh.TrangThaiBaoHanh trangThai = PhieuBaoHanh.TrangThaiBaoHanh.fromString(rs.getString("trangthai"));
+
+        return new PhieuBaoHanh(
+                rs.getInt("idbh"),
+                rs.getString("maspcuthe"),
+                rs.getDate("ngaynhansanpham").toLocalDate(),
+                ngayTra,
+                rs.getInt("makh"),
+                trangThai,
+                rs.getInt("mahdx")
+        );
     }
 
+    // Lấy TẤT CẢ phiếu bảo hành
+    public static List<PhieuBaoHanh> getAll() {
+        List<PhieuBaoHanh> list = new ArrayList<>();
+        String sql = "SELECT idbh, maspcuthe, ngaynhansanpham, ngaytrasanpham, makh, trangthai, mahdx " +
+                     "FROM PhieuBaoHanh ORDER BY ngaynhansanpham DESC, idbh DESC";
+        try (Connection conn = DBConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                list.add(mapResultSetToPhieuBaoHanh(rs));
+            }
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Lỗi khi lấy danh sách phiếu bảo hành: " + e.getMessage(), e);
+        }
+        return list;
+    }
+
+    // Lấy phiếu bảo hành THEO MÃ KHÁCH HÀNG
     public static List<PhieuBaoHanh> getByMaKH(int maKH) {
         List<PhieuBaoHanh> list = new ArrayList<>();
-        // Câu lệnh SQL đã đúng, bao gồm mahdx
-        String sql = "SELECT idbh, masp, ngaynhansanpham, ngaytrasanpham, makh, trangthai, mahdx " +
-                     "FROM PhieuBaoHanh WHERE makh = ? ORDER BY ngaynhansanpham DESC";
+        String sql = "SELECT idbh, maspcuthe, ngaynhansanpham, ngaytrasanpham, makh, trangthai, mahdx " +
+                     "FROM PhieuBaoHanh WHERE makh = ? ORDER BY ngaynhansanpham DESC, idbh DESC";
 
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, maKH);
-            try (ResultSet rs = stmt.executeQuery()) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, maKH);
+            try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    LocalDate ngayTra = null;
-                    Date sqlDateTra = rs.getDate("ngaytrasanpham");
-                    if (sqlDateTra != null) {
-                        ngayTra = sqlDateTra.toLocalDate();
-                    }
-                    Integer maHDX = rs.getObject("mahdx") == null ? null : rs.getInt("mahdx");
-
-                    // SỬA LỖI: Gọi constructor đúng của PhieuBaoHanh
-                    PhieuBaoHanh pb = new PhieuBaoHanh(
-                        rs.getInt("idbh"),
-                        rs.getInt("masp"),
-                        rs.getDate("ngaynhansanpham").toLocalDate(),
-                        ngayTra,
-                        rs.getInt("makh"),
-                        rs.getString("trangthai"),
-                        maHDX // Truyền maHDX
-                    );
-                    list.add(pb);
+                    list.add(mapResultSetToPhieuBaoHanh(rs));
                 }
             }
         } catch (SQLException e) {
-            System.err.println("PhieuBaoHanhQuery (getByMaKH): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Lỗi khi lấy phiếu bảo hành theo Mã KH " + maKH + ": " + e.getMessage(), e);
         }
         return list;
     }
 
-    public static List<PhieuBaoHanh> getAll() {
-        List<PhieuBaoHanh> list = new ArrayList<>();
-        // Câu lệnh SQL đã đúng, bao gồm mahdx
-        String sql = "SELECT idbh, masp, ngaynhansanpham, ngaytrasanpham, makh, trangthai, mahdx " +
-                     "FROM PhieuBaoHanh ORDER BY ngaynhansanpham DESC";
-
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                 LocalDate ngayTra = null;
-                 Date sqlDateTra = rs.getDate("ngaytrasanpham");
-                 if (sqlDateTra != null) {
-                     ngayTra = sqlDateTra.toLocalDate();
-                 }
-                 Integer maHDX = rs.getObject("mahdx") == null ? null : rs.getInt("mahdx");
-
-                // SỬA LỖI: Gọi constructor đúng của PhieuBaoHanh
-                PhieuBaoHanh pb = new PhieuBaoHanh(
-                    rs.getInt("idbh"),
-                    rs.getInt("masp"),
-                    rs.getDate("ngaynhansanpham").toLocalDate(),
-                    ngayTra,
-                    rs.getInt("makh"),
-                    rs.getString("trangthai"),
-                    maHDX // Truyền maHDX
-                );
-                list.add(pb);
-            }
-        } catch (SQLException e) {
-            System.err.println("PhieuBaoHanhQuery (getAll): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return list;
-    }
-
-    public static boolean updateTrangThaiAndNgayTra(int idBH, String trangThaiMoi, LocalDate ngayTraSanPhamMoi) {
+    // Cập nhật TRẠNG THÁI và NGÀY TRẢ
+    public static boolean updateTrangThaiAndNgayTra(int idBH, PhieuBaoHanh.TrangThaiBaoHanh trangThaiMoi, LocalDate ngayTraMoi) {
+        // Trigger `func_auto_update_spct_status_on_warranty` sẽ tự động cập nhật bảng SanPhamCuThe
+        // nên ta chỉ cần cập nhật bảng PhieuBaoHanh.
+        // Tuy nhiên, trigger đó chỉ chạy khi INSERT. Ta cần một trigger khác cho UPDATE.
+        // Giả sử logic cập nhật trạng thái SP cụ thể được xử lý ở đây hoặc trong trigger khác.
         String sql = "UPDATE PhieuBaoHanh SET trangthai = ?, ngaytrasanpham = ? WHERE idbh = ?";
+
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, trangThaiMoi);
-            if (ngayTraSanPhamMoi != null) {
-                stmt.setDate(2, Date.valueOf(ngayTraSanPhamMoi));
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, trangThaiMoi.getValue());
+
+            if (ngayTraMoi != null) {
+                pstmt.setDate(2, Date.valueOf(ngayTraMoi));
             } else {
-                stmt.setNull(2, Types.DATE);
+                pstmt.setNull(2, Types.DATE);
             }
-            stmt.setInt(3, idBH);
-            return stmt.executeUpdate() > 0;
+
+            pstmt.setInt(3, idBH);
+
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+
         } catch (SQLException e) {
-            System.err.println("PhieuBaoHanhQuery (updateTrangThaiAndNgayTra): Lỗi SQL: " + e.getMessage());
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Lỗi khi cập nhật phiếu bảo hành ID " + idBH + ": " + e.getMessage(), e);
             return false;
         }
     }
-
-    public static PhieuBaoHanh getByIdBH(int idBH) {
-        // Câu lệnh SQL đã đúng, bao gồm mahdx
-        String sql = "SELECT idbh, masp, ngaynhansanpham, ngaytrasanpham, makh, trangthai, mahdx " +
-                     "FROM PhieuBaoHanh WHERE idbh = ?";
+ // Thêm phương thức này vào trong class PhieuBaoHanhQuery đã có của bạn
+    public static boolean isProductCurrentlyInWarranty(String maSPCuThe) {
+        String sql = "SELECT 1 FROM PhieuBaoHanh WHERE maspcuthe = ? AND trangthai != ?";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idBH);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    LocalDate ngayTra = null;
-                    Date sqlDateTra = rs.getDate("ngaytrasanpham");
-                    if (sqlDateTra != null) {
-                        ngayTra = sqlDateTra.toLocalDate();
-                    }
-                    Integer maHDX = rs.getObject("mahdx") == null ? null : rs.getInt("mahdx");
-                    return new PhieuBaoHanh(
-                        rs.getInt("idbh"),
-                        rs.getInt("masp"),
-                        rs.getDate("ngaynhansanpham").toLocalDate(),
-                        ngayTra,
-                        rs.getInt("makh"),
-                        rs.getString("trangthai"),
-                        maHDX 
-                    );
-                }
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, maSPCuThe);
+            pstmt.setString(2, PhieuBaoHanh.TrangThaiBaoHanh.DA_TRA_KHACH.getValue());
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next(); // true nếu có kết quả
             }
         } catch (SQLException e) {
-             System.err.println("PhieuBaoHanhQuery (getByIdBH): Lỗi SQL cho IDBH " + idBH + ": " + e.getMessage());
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Lỗi khi kiểm tra sản phẩm đang bảo hành: " + maSPCuThe, e);
+            // Trong trường hợp lỗi, giả định an toàn là không có để tránh chặn người dùng oan
+            return false;
         }
-        return null;
     }
-}
+    public static Integer insertPhieuBaoHanhAndGetId(PhieuBaoHanh pbh) throws SQLException {
+        // CSDL của bạn định nghĩa MaHDX là NOT NULL, nên không cần kiểm tra null ở đây
+        String sql = "INSERT INTO PhieuBaoHanh (maspcuthe, ngaynhansanpham, ngaytrasanpham, makh, trangthai, mahdx) " +
+                     "VALUES (?, ?, ?, ?, ?, ?)";
+                     
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
+            pstmt.setString(1, pbh.getMaSPCuThe());
+            pstmt.setDate(2, Date.valueOf(pbh.getNgayNhanSanPham()));
+            if (pbh.getNgayTraSanPham() != null) {
+                pstmt.setDate(3, Date.valueOf(pbh.getNgayTraSanPham()));
+            } else {
+                pstmt.setNull(3, Types.DATE);
+            }
+            
+            pstmt.setInt(4, pbh.getMaKH());
+            pstmt.setString(5, pbh.getTrangThai().getValue()); // Lấy chuỗi từ Enum
+            pstmt.setInt(6, pbh.getMaHDX());
+
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows == 0) {
+                throw new SQLException("Tạo phiếu bảo hành thất bại, không có hàng nào được thêm.");
+            }
+
+            try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    return generatedKeys.getInt(1); // Trả về idbh được tạo
+                } else {
+                    throw new SQLException("Tạo phiếu bảo hành thành công nhưng không lấy được ID.");
+                }
+            }
+        }
+    }}
