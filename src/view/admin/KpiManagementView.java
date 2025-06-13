@@ -45,7 +45,7 @@ public class KpiManagementView extends JPanel {
 
         initUI();
         new KpiController(this);
-        searchButton.doClick(); // Tải dữ liệu ban đầu
+        searchButton.doClick();
     }
 
     private void initUI() {
@@ -103,7 +103,6 @@ public class KpiManagementView extends JPanel {
         updateButton = createStyledButton("Tính Lại KPI", DANGER_ACTION_COLOR);
         filterPanel.add(updateButton, gbc);
 
-        // Thành phần đệm để đẩy các nút về bên trái
         gbc.gridx = 6; gbc.gridy = 0; gbc.weightx = 1.0;
         filterPanel.add(new JLabel(""), gbc);
 
@@ -116,7 +115,7 @@ public class KpiManagementView extends JPanel {
             months[i] = "Tháng " + (i + 1);
         }
         JComboBox<String> cbo = new JComboBox<>(months);
-        cbo.setSelectedIndex(LocalDate.now().getMonthValue() - 1); // Chọn tháng hiện tại
+        cbo.setSelectedIndex(LocalDate.now().getMonthValue() - 1);
         styleComboBox(cbo);
         return cbo;
     }
@@ -155,10 +154,8 @@ public class KpiManagementView extends JPanel {
         return statusLabel;
     }
 
+    // TỐI ƯU & SỬA LỖI: Cập nhật phương thức styleTable
     private void styleTable() {
-        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-
         kpiTable.setFillsViewportHeight(true);
         kpiTable.setRowHeight(30);
         kpiTable.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -166,16 +163,25 @@ public class KpiManagementView extends JPanel {
         kpiTable.getTableHeader().setBackground(HEADER_BG_COLOR);
         kpiTable.getTableHeader().setForeground(Color.WHITE);
         kpiTable.getTableHeader().setReorderingAllowed(false);
+        kpiTable.setGridColor(new Color(220, 220, 220));
+        kpiTable.setSelectionBackground(new Color(184, 207, 229));
 
-        kpiTable.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
-        kpiTable.getColumnModel().getColumn(1).setCellRenderer(centerRenderer);
-        kpiTable.getColumnModel().getColumn(3).setCellRenderer(centerRenderer);
-        kpiTable.getColumnModel().getColumn(4).setCellRenderer(centerRenderer);
-        kpiTable.getColumnModel().getColumn(5).setCellRenderer(new CurrencyRenderer());
-        kpiTable.getColumnModel().getColumn(6).setCellRenderer(new CurrencyRenderer());
-        kpiTable.getColumnModel().getColumn(7).setCellRenderer(new CurrencyRenderer());
-        kpiTable.getColumnModel().getColumn(8).setCellRenderer(new CurrencyRenderer());
+        // --- ÁP DỤNG CĂN CHỈNH ---
+        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
 
+        CurrencyRenderer currencyRenderer = new CurrencyRenderer(); // Renderer cho tiền tệ (căn phải)
+
+        kpiTable.getColumnModel().getColumn(0).setCellRenderer(centerRenderer); // ID KPI
+        kpiTable.getColumnModel().getColumn(1).setCellRenderer(centerRenderer); // Mã NV
+        // Cột 2 (Tên Nhân Viên) sẽ dùng renderer mặc định (căn trái)
+        kpiTable.getColumnModel().getColumn(3).setCellRenderer(centerRenderer); // Tháng
+        kpiTable.getColumnModel().getColumn(4).setCellRenderer(centerRenderer); // Năm
+        kpiTable.getColumnModel().getColumn(5).setCellRenderer(currencyRenderer); // Tổng Doanh Số
+        kpiTable.getColumnModel().getColumn(6).setCellRenderer(currencyRenderer); // Thưởng Mốc
+        kpiTable.getColumnModel().getColumn(7).setCellRenderer(currencyRenderer); // Thưởng Hạng
+        kpiTable.getColumnModel().getColumn(8).setCellRenderer(currencyRenderer); // Tổng Thưởng
+        
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(tableModel);
         kpiTable.setRowSorter(sorter);
     }
@@ -184,7 +190,7 @@ public class KpiManagementView extends JPanel {
         cbo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         cbo.setPreferredSize(new Dimension(120, 38));
         cbo.setBackground(Color.WHITE);
-        cbo.setUI(new BasicComboBoxUI()); // UI phẳng hơn
+        cbo.setUI(new BasicComboBoxUI());
     }
 
     private JButton createStyledButton(String text, Color backgroundColor) {
@@ -231,15 +237,16 @@ public class KpiManagementView extends JPanel {
         JOptionPane.showMessageDialog(this, message, isSuccess ? "Thành Công" : "Lỗi", isSuccess ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.ERROR_MESSAGE);
     }
     
-    // --- Custom Table Cell Renderer for Currency ---
     private static class CurrencyRenderer extends DefaultTableCellRenderer {
         private static final long serialVersionUID = 1L;
         private static final NumberFormat FORMATTER = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            if (value instanceof BigDecimal) {
+            if (value instanceof BigDecimal || value instanceof Number) {
                 setText(FORMATTER.format(value));
+            } else {
+                 setText("0 ₫");
             }
             setHorizontalAlignment(SwingConstants.RIGHT);
             return this;

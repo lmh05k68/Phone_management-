@@ -8,6 +8,7 @@ import query.SPCuTheQuery;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.math.BigDecimal;
@@ -17,7 +18,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
-
 public class SellProductView extends JFrame {
     private static final long serialVersionUID = 1L;
 
@@ -27,14 +27,15 @@ public class SellProductView extends JFrame {
     private static final Color COLOR_DANGER = new Color(220, 53, 69);
     private static final Color COLOR_WARNING = new Color(255, 193, 7);
     private static final Color COLOR_TEXT_ON_DARK = Color.WHITE;
-    private static final Color COLOR_TEXT_ON_LIGHT = Color.BLACK;
 
     private static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD, 14);
     private static final Font FONT_BUTTON = new Font("Segoe UI", Font.BOLD, 14);
+    private static final Font FONT_TABLE_HEADER = new Font("Segoe UI", Font.BOLD, 13);
+    private static final Font FONT_TABLE = new Font("Segoe UI", Font.PLAIN, 13);
     private static final Font FONT_TOTAL = new Font("Segoe UI", Font.BOLD, 22);
     private static final Font FONT_DISCOUNT = new Font("Segoe UI", Font.ITALIC, 14);
-
-    private static final BigDecimal VAT_RATE = new BigDecimal("0.08"); // 8% VAT
+    
+    private static final BigDecimal VAT_RATE = new BigDecimal("0.10"); // 10% VAT
 
     // --- THÀNH VIÊN LỚP ---
     private final int maNV;
@@ -62,10 +63,12 @@ public class SellProductView extends JFrame {
         loadAvailableProducts();
     }
 
+    //region UI Initialization & Styling
+
     private void initUI() {
         Container contentPane = getContentPane();
         contentPane.setLayout(new BorderLayout(10, 10));
-        contentPane.setBackground(Color.WHITE); // Set background for the frame
+        contentPane.setBackground(Color.WHITE);
 
         contentPane.add(createTopPanel(), BorderLayout.NORTH);
         contentPane.add(createCenterPanel(), BorderLayout.CENTER);
@@ -114,7 +117,7 @@ public class SellProductView extends JFrame {
         lblGiamGia.setFont(new Font("Segoe UI", Font.PLAIN, 16));
 
         btnToggleSuDungDiem = new JButton();
-        updateDiscountButtonState(); // Set initial state
+        updateDiscountButtonState();
 
         JPanel buttonContainer = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 5));
         buttonContainer.setOpaque(false);
@@ -127,19 +130,31 @@ public class SellProductView extends JFrame {
 
     private JSplitPane createCenterPanel() {
         String[] cols = {"Mã SP Cụ Thể (IMEI)", "Tên Sản Phẩm", "Màu Sắc", "Giá Bán"};
+        
+        // Tối ưu: Thêm getColumnClass để bảng có thể dùng đúng renderer và sắp xếp
         modelSanPham = new DefaultTableModel(cols, 0) {
             private static final long serialVersionUID = 1L;
             @Override public boolean isCellEditable(int r, int c) { return false; }
+            @Override public Class<?> getColumnClass(int columnIndex) {
+                return columnIndex == 3 ? BigDecimal.class : Object.class;
+            }
         };
         tableSanPham = new JTable(modelSanPham);
+        styleProductTable(tableSanPham);
 
         modelGioHang = new DefaultTableModel(cols, 0) {
             private static final long serialVersionUID = 1L;
             @Override public boolean isCellEditable(int r, int c) { return false; }
+            @Override public Class<?> getColumnClass(int columnIndex) {
+                return columnIndex == 3 ? BigDecimal.class : Object.class;
+            }
         };
         tableGioHang = new JTable(modelGioHang);
+        styleProductTable(tableGioHang);
 
-        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(tableSanPham), new JScrollPane(tableGioHang));
+        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
+                new JScrollPane(tableSanPham),
+                new JScrollPane(tableGioHang));
         splitPane.setResizeWeight(0.6);
         splitPane.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
         return splitPane;
@@ -149,7 +164,6 @@ public class SellProductView extends JFrame {
         JPanel bottomPanel = new JPanel(new BorderLayout(10, 10));
         bottomPanel.setOpaque(false);
         bottomPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 10, 10));
-
 
         JButton btnThem = new JButton();
         styleButton(btnThem, COLOR_SUCCESS, "/icons/arrow-right.png");
@@ -176,7 +190,7 @@ public class SellProductView extends JFrame {
         lblDiscountInfo.setFont(FONT_DISCOUNT);
         lblDiscountInfo.setForeground(COLOR_DANGER);
 
-        btnThanhToan = new JButton("THANH TOÁN");
+        btnThanhToan = new JButton("TẠO HÓA ĐƠN");
         styleButton(btnThanhToan, COLOR_SUCCESS);
 
         paymentPanel.add(lblTotalTitle);
@@ -191,59 +205,70 @@ public class SellProductView extends JFrame {
         btnXoa.addActionListener(e -> xoaKhoiGioHang());
         return bottomPanel;
     }
-
-    private void addActionListeners() {
-        btnToggleSuDungDiem.addActionListener(e -> toggleSuDungDiem());
-        btnThanhToan.addActionListener(e -> thanhToan());
-    }
-
-    // --- CÁC PHƯƠNG THỨC HỖ TRỢ ---
-
+    
     /**
-     * Định dạng một JButton với màu nền và màu chữ tương phản tự động.
+     * Áp dụng style chung cho một button.
      */
     private void styleButton(JButton button, Color backgroundColor) {
         styleButton(button, backgroundColor, null);
     }
     
     /**
-     * Định dạng một JButton với màu nền, màu chữ tương phản và icon (tùy chọn).
+     * Áp dụng style cho button, có thể kèm icon.
      */
     private void styleButton(JButton button, Color backgroundColor, String iconPath) {
         button.setBackground(backgroundColor);
         button.setFont(FONT_BUTTON);
         button.setFocusPainted(false);
         button.setBorder(BorderFactory.createEmptyBorder(8, 18, 8, 18));
-    
-        // *** TỐI ƯU: Tự động quyết định màu chữ (đen/trắng) dựa trên độ sáng của màu nền ***
-        // Điều này đảm bảo độ tương phản luôn tốt, giúp chữ dễ đọc.
-        double luminance = (0.299 * backgroundColor.getRed() + 0.587 * backgroundColor.getGreen() + 0.114 * backgroundColor.getBlue());
-        if (luminance > 150) { // Nền được coi là "sáng"
-            button.setForeground(COLOR_TEXT_ON_LIGHT); // Chữ màu đen
-        } else { // Nền được coi là "tối"
-            button.setForeground(COLOR_TEXT_ON_DARK); // Chữ màu trắng
-        }
+        // Mặc định chữ trắng trên nền màu
+        button.setForeground(COLOR_TEXT_ON_DARK);
     
         if (iconPath != null && !iconPath.isEmpty()) {
             try {
                 ImageIcon icon = new ImageIcon(getClass().getResource(iconPath));
                 Image img = icon.getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH);
                 button.setIcon(new ImageIcon(img));
-                button.setText(""); // Bỏ text nếu có icon
-                button.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Padding cho icon
+                button.setText(""); 
+                button.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
             } catch (Exception e) {
                 System.err.println("Không tìm thấy icon: " + iconPath);
-                // Fallback text
                 if (iconPath.contains("right")) button.setText("Thêm");
                 if (iconPath.contains("left")) button.setText("Xóa");
             }
         }
     }
+    
+    /**
+     * Áp dụng style và renderer cho các bảng sản phẩm và giỏ hàng.
+     */
+    private void styleProductTable(JTable table) {
+        table.setFont(FONT_TABLE);
+        table.getTableHeader().setFont(FONT_TABLE_HEADER);
+        table.setRowHeight(28);
+        table.getTableHeader().setReorderingAllowed(false);
+        table.setAutoCreateRowSorter(true);
 
+        // Áp dụng renderer mặc định để căn giữa cho các cột văn bản
+        table.setDefaultRenderer(Object.class, new CenteredRenderer());
+        // Áp dụng renderer riêng cho cột tiền tệ để căn phải và định dạng
+        table.setDefaultRenderer(BigDecimal.class, new CurrencyRenderer());
+    }
+
+    //endregion
+
+    //region Action Listeners & Logic
+
+    private void addActionListeners() {
+        btnToggleSuDungDiem.addActionListener(e -> toggleSuDungDiem());
+        btnThanhToan.addActionListener(e -> thanhToan());
+    }
+    
     private void moveSelectedRows(JTable sourceTable, DefaultTableModel sourceModel, DefaultTableModel destModel) {
         int[] selectedRows = sourceTable.getSelectedRows();
         if (selectedRows.length == 0) return;
 
+        // Chuyển từ dưới lên để không bị lỗi index
         for (int i = selectedRows.length - 1; i >= 0; i--) {
             int modelRow = sourceTable.convertRowIndexToModel(selectedRows[i]);
             Object[] rowData = new Object[sourceModel.getColumnCount()];
@@ -255,8 +280,6 @@ public class SellProductView extends JFrame {
         }
         updateTotalAmountDisplay();
     }
-
-    // --- CÁC PHƯƠNG THỨC LOGIC ---
 
     private void loadAvailableProducts() {
         setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
@@ -293,7 +316,6 @@ public class SellProductView extends JFrame {
         new SwingWorker<KhachHang, Void>() {
             @Override
             protected KhachHang doInBackground() throws Exception {
-                // Đặt lại thông tin khách hàng hiện tại trước khi tìm kiếm
                 khachHangHienTai = null;
                 suDungDiemIsActive = false;
                 int maKH = Integer.parseInt(input);
@@ -307,19 +329,16 @@ public class SellProductView extends JFrame {
                         tfMaKH.setText(String.valueOf(khachHangHienTai.getMaKH()));
                         tfTenKH.setText(khachHangHienTai.getHoTen());
                         tfSdtKH.setText(khachHangHienTai.getSdtKH());
-
                         int diem = khachHangHienTai.getSoDiemTichLuy();
                         int phanTramGiam = Math.min(diem / 100, 20);
-
                         if (phanTramGiam > 0) {
                             lblGiamGia.setText(String.format("<html>Có thể giảm <font color='red'>%d%%</font> (Điểm: %d)</html>", phanTramGiam, diem));
                         } else {
                             lblGiamGia.setText(String.format("Không đủ điểm để giảm giá (Điểm: %d)", diem));
                         }
                     } else {
-                        tfTenKH.setText("");
-                        tfSdtKH.setText("");
                         lblGiamGia.setText("Không tìm thấy khách hàng.");
+                        resetCustomerInfoFields();
                     }
                 } catch (NumberFormatException ex) {
                     JOptionPane.showMessageDialog(SellProductView.this, "Mã khách hàng phải là một số.", "Lỗi Định Dạng", JOptionPane.ERROR_MESSAGE);
@@ -339,18 +358,18 @@ public class SellProductView extends JFrame {
 
     private void resetCustomerInfo() {
         khachHangHienTai = null;
-        tfTenKH.setText("");
-        tfSdtKH.setText("");
-        lblGiamGia.setText("Nhập Mã KH để xem ưu đãi.");
         suDungDiemIsActive = false;
+        lblGiamGia.setText("Nhập Mã KH để xem ưu đãi.");
+        resetCustomerInfoFields();
         updateDiscountButtonState();
         updateTotalAmountDisplay();
     }
-
-    /**
-     * Cập nhật trạng thái (văn bản, màu sắc, trạng thái enabled) của nút sử dụng điểm.
-     * Phương thức này tập trung logic để dễ quản lý.
-     */
+    
+    private void resetCustomerInfoFields() {
+        tfTenKH.setText("");
+        tfSdtKH.setText("");
+    }
+    
     private void updateDiscountButtonState() {
         boolean canUsePoints = khachHangHienTai != null && (khachHangHienTai.getSoDiemTichLuy() / 100) > 0;
         btnToggleSuDungDiem.setEnabled(canUsePoints);
@@ -362,6 +381,8 @@ public class SellProductView extends JFrame {
             btnToggleSuDungDiem.setText("Sử dụng điểm thưởng");
             styleButton(btnToggleSuDungDiem, COLOR_PRIMARY);
         }
+        // SỬA ĐỔI: Luôn đảm bảo chữ màu trắng
+        btnToggleSuDungDiem.setForeground(COLOR_TEXT_ON_DARK);
     }
 
 
@@ -444,13 +465,15 @@ public class SellProductView extends JFrame {
                         JOptionPane.showMessageDialog(SellProductView.this, "Thanh toán thành công!\nMã hóa đơn mới là: " + maHDX, "Thành công", JOptionPane.INFORMATION_MESSAGE);
                         resetForm();
                     } else {
-                        modelGioHang.setRowCount(0);
                         loadAvailableProducts();
-                        updateTotalAmountDisplay();
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
-                    JOptionPane.showMessageDialog(SellProductView.this, "Đã xảy ra lỗi trong quá trình thanh toán.", "Lỗi nghiêm trọng", JOptionPane.ERROR_MESSAGE);
+                    String message = "Đã xảy ra lỗi trong quá trình thanh toán.";
+                    if (e.getCause() != null) {
+                        message = e.getCause().getMessage();
+                    }
+                    JOptionPane.showMessageDialog(SellProductView.this, message, "Lỗi nghiêm trọng", JOptionPane.ERROR_MESSAGE);
                 } finally {
                     btnThanhToan.setEnabled(true);
                     setCursor(Cursor.getDefaultCursor());
@@ -464,5 +487,27 @@ public class SellProductView extends JFrame {
         tfMaKH.setText("");
         resetCustomerInfo();
         loadAvailableProducts();
+    }
+    private static class CenteredRenderer extends DefaultTableCellRenderer {
+        private static final long serialVersionUID = 1L;
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            setHorizontalAlignment(SwingConstants.CENTER);
+            return this;
+        }
+    }
+    private static class CurrencyRenderer extends DefaultTableCellRenderer {
+        private static final long serialVersionUID = 1L;
+        private static final NumberFormat FORMATTER = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            if (value instanceof BigDecimal) {
+                setText(FORMATTER.format(value));
+            }
+            setHorizontalAlignment(SwingConstants.RIGHT); // Tiền tệ luôn căn phải
+            return this;
+        }
     }
 }

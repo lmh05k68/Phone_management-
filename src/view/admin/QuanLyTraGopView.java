@@ -1,13 +1,13 @@
 package view.admin;
-
+import javax.swing.plaf.basic.BasicArrowButton;
 import controller.admin.QuanLyTraGopController;
 import model.TraGop;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicComboBoxUI;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
@@ -15,15 +15,22 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-
 public class QuanLyTraGopView extends JPanel {
     private static final long serialVersionUID = 1L;
-    private static final Color BG_COLOR = new Color(245, 245, 245);
+
+    // --- UI Constants ---
+    private static final Color BG_COLOR = new Color(248, 249, 250);
     private static final Color TITLE_COLOR = new Color(0, 102, 204);
     private static final Color HEADER_BG_COLOR = new Color(52, 73, 94);
     private static final Color HEADER_FG_COLOR = Color.WHITE;
+    private static final Color ALT_ROW_COLOR = new Color(242, 242, 242);
     private static final Color PRIMARY_ACTION_COLOR = new Color(0, 123, 255);
     private static final Color SECONDARY_ACTION_COLOR = new Color(108, 117, 125);
+
+    private static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD, 28);
+    private static final Font FONT_BUTTON = new Font("Segoe UI", Font.BOLD, 14);
+    private static final Font FONT_TABLE_HEADER = new Font("Segoe UI", Font.BOLD, 15);
+    private static final Font FONT_TABLE = new Font("Segoe UI", Font.PLAIN, 14);
 
     // --- Components ---
     private JTable table;
@@ -50,7 +57,7 @@ public class QuanLyTraGopView extends JPanel {
 
     private JLabel createTitlePanel() {
         JLabel lblTitle = new JLabel("Danh Sách Phiếu Trả Góp", SwingConstants.CENTER);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        lblTitle.setFont(FONT_TITLE);
         lblTitle.setForeground(TITLE_COLOR);
         lblTitle.setBorder(new EmptyBorder(0, 0, 10, 0));
         return lblTitle;
@@ -68,14 +75,11 @@ public class QuanLyTraGopView extends JPanel {
         JPanel controlsPanel = new JPanel(new GridBagLayout());
         controlsPanel.setOpaque(false);
         controlsPanel.setBorder(BorderFactory.createTitledBorder("Công cụ lọc và tìm kiếm"));
-
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.anchor = GridBagConstraints.WEST;
 
-        gbc.gridx = 0; gbc.gridy = 0;
-        controlsPanel.add(new JLabel("Tìm theo Mã HĐX:"), gbc);
-
+        gbc.gridx = 0; gbc.gridy = 0; controlsPanel.add(new JLabel("Tìm theo Mã HĐX:"), gbc);
         gbc.gridx = 1; gbc.gridy = 0;
         txtSearchMaHDX = new JTextField(15);
         txtSearchMaHDX.setPreferredSize(new Dimension(txtSearchMaHDX.getPreferredSize().width, 38));
@@ -86,7 +90,7 @@ public class QuanLyTraGopView extends JPanel {
         controlsPanel.add(btnSearch, gbc);
 
         gbc.gridx = 3; gbc.gridy = 0; gbc.insets.left = 20;
-        controlsPanel.add(new JLabel("Trạng thái:"), gbc);
+        controlsPanel.add(new JLabel("Trạng thái thanh toán:"), gbc);
         gbc.insets.left = 5;
 
         gbc.gridx = 4; gbc.gridy = 0;
@@ -99,9 +103,9 @@ public class QuanLyTraGopView extends JPanel {
         controlsPanel.add(btnRefresh, gbc);
 
         gbc.gridx = 6; gbc.gridy = 0; gbc.weightx = 1.0;
-        controlsPanel.add(new JLabel(""), gbc);
+        controlsPanel.add(new JLabel(""), gbc); // Spacer
 
-        // --- Gắn sự kiện ---
+        // --- Event Listeners ---
         Runnable searchAction = () -> controller.searchByInvoiceId(txtSearchMaHDX.getText());
         txtSearchMaHDX.addActionListener(e -> searchAction.run());
         btnSearch.addActionListener(e -> searchAction.run());
@@ -116,7 +120,7 @@ public class QuanLyTraGopView extends JPanel {
     }
 
     private JScrollPane createTablePanel() {
-        String[] columnNames = {"Mã Phiếu", "Mã HĐX", "Tiền Gốc", "Số Tháng", "Lãi Suất", "Ngày Bắt Đầu", "Trạng Thái"};
+        String[] columnNames = {"Mã Phiếu", "Mã HĐX", "Tiền Gốc", "Số Tháng", "Lãi Suất", "Ngày Bắt Đầu", "Trạng Thái TT"};
         tableModel = new DefaultTableModel(columnNames, 0) {
             private static final long serialVersionUID = 1L;
             @Override public boolean isCellEditable(int row, int column) { return false; }
@@ -125,12 +129,23 @@ public class QuanLyTraGopView extends JPanel {
                     case 0: case 1: case 3: return Integer.class;
                     case 2: case 4: return BigDecimal.class;
                     case 5: return LocalDate.class;
-                    case 6: return Boolean.class;
+                    case 6: return Boolean.class; // Trạng thái thanh toán
                     default: return Object.class;
                  }
             }
         };
-        table = new JTable(tableModel);
+        
+        table = new JTable(tableModel) {
+            private static final long serialVersionUID = 1L;
+            @Override
+            public Component prepareRenderer(javax.swing.table.TableCellRenderer renderer, int row, int column) {
+                Component c = super.prepareRenderer(renderer, row, column);
+                if (!isRowSelected(row)) {
+                    c.setBackground(row % 2 == 0 ? Color.WHITE : ALT_ROW_COLOR);
+                }
+                return c;
+            }
+        };
         styleTable();
 
         JScrollPane scrollPane = new JScrollPane(table);
@@ -140,40 +155,44 @@ public class QuanLyTraGopView extends JPanel {
 
     private void styleTable() {
         table.setFillsViewportHeight(true);
-        table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        table.setRowHeight(30);
-        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 15));
+        table.setFont(FONT_TABLE);
+        table.setRowHeight(32);
+        table.getTableHeader().setFont(FONT_TABLE_HEADER);
         table.getTableHeader().setBackground(HEADER_BG_COLOR);
         table.getTableHeader().setForeground(HEADER_FG_COLOR);
-        table.getColumnModel().getColumn(2).setCellRenderer(new CurrencyRenderer());
+        table.setAutoCreateRowSorter(true);
+
+        // TỐI ƯU: Thiết lập renderer mặc định để căn giữa
+        CenteredRenderer centeredRenderer = new CenteredRenderer();
+        table.setDefaultRenderer(Integer.class, centeredRenderer);
+        table.setDefaultRenderer(String.class, centeredRenderer); // Căn giữa các cột String (nếu có)
+        
+        // Giữ lại renderer chuyên dụng
+        table.setDefaultRenderer(BigDecimal.class, new CurrencyRenderer());
+        table.setDefaultRenderer(LocalDate.class, new DateRenderer());
+        table.setDefaultRenderer(Boolean.class, new StatusRenderer());
+        
+        // Điều chỉnh cột Lãi suất để dùng renderer khác
         table.getColumnModel().getColumn(4).setCellRenderer(new PercentageRenderer());
-        table.getColumnModel().getColumn(5).setCellRenderer(new DateRenderer());
-        table.getColumnModel().getColumn(6).setCellRenderer(new StatusRenderer());
-        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(tableModel);
-        table.setRowSorter(sorter);
     }
 
     private JButton createStyledButton(String text, Color backgroundColor, Color foregroundColor) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btn.setFont(FONT_BUTTON);
         btn.setFocusPainted(false);
         btn.setBackground(backgroundColor);
         btn.setForeground(foregroundColor);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        
-        // *** SỬA LỖI TẠI ĐÂY: Dùng border để tạo padding, không dùng setPreferredSize ***
-        // Điều này đảm bảo nút sẽ tự động có chiều rộng đủ để chứa chữ
-        btn.setBorder(new EmptyBorder(10, 25, 10, 25));
-
+        btn.setBorder(new EmptyBorder(10, 25, 10, 25)); // Sửa lỗi kích thước nút
         return btn;
     }
 
     private void styleComboBox(JComboBox<String> cbo) {
         cbo.setUI(new StyledComboBoxUI());
-        cbo.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        cbo.setFont(FONT_BUTTON);
         cbo.setBackground(HEADER_BG_COLOR);
         cbo.setForeground(HEADER_FG_COLOR);
-        cbo.setPreferredSize(new Dimension(160, 38));
+        cbo.setPreferredSize(new Dimension(180, 38));
     }
 
     public void updateTable(List<TraGop> list) {
@@ -194,36 +213,47 @@ public class QuanLyTraGopView extends JPanel {
         JOptionPane.showMessageDialog(this, message, isSuccess ? "Thành Công" : "Lỗi",
                 isSuccess ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.ERROR_MESSAGE);
     }
-    private static class CurrencyRenderer extends javax.swing.table.DefaultTableCellRenderer {
-    	private static final long serialVersionUID = 1L;
+    
+    // --- Custom Table Cell Renderers ---
+
+    private static class CenteredRenderer extends DefaultTableCellRenderer {
+        private static final long serialVersionUID = 1L;
+        public CenteredRenderer() { setHorizontalAlignment(SwingConstants.CENTER); }
+    }
+
+    private static class CurrencyRenderer extends DefaultTableCellRenderer {
+        private static final long serialVersionUID = 1L;
         private static final NumberFormat FORMATTER = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
-        @Override public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            if (value instanceof Number) setText(FORMATTER.format(value));
-            setHorizontalAlignment(SwingConstants.RIGHT); return this;
+        public CurrencyRenderer() { setHorizontalAlignment(SwingConstants.RIGHT); }
+        @Override public void setValue(Object value) {
+            setText((value == null) ? "" : FORMATTER.format(value));
         }
     }
-    private static class PercentageRenderer extends javax.swing.table.DefaultTableCellRenderer {
-    	private static final long serialVersionUID = 1L;
-        @Override public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            if (value instanceof BigDecimal) setText(String.format("%.2f %%", ((BigDecimal) value).doubleValue()));
-            setHorizontalAlignment(SwingConstants.CENTER); return this;
+
+    private static class PercentageRenderer extends CenteredRenderer {
+        private static final long serialVersionUID = 1L;
+        @Override public void setValue(Object value) {
+            if (value instanceof BigDecimal) {
+                setText(String.format("%.2f %%", ((BigDecimal) value).doubleValue()));
+            } else {
+                setText("");
+            }
         }
     }
-    private static class DateRenderer extends javax.swing.table.DefaultTableCellRenderer {
-    	private static final long serialVersionUID = 1L;
+
+    private static class DateRenderer extends CenteredRenderer {
+        private static final long serialVersionUID = 1L;
         private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        @Override public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            if (value instanceof LocalDate) setText(((LocalDate) value).format(FORMATTER));
-            setHorizontalAlignment(SwingConstants.CENTER); return this;
+        @Override public void setValue(Object value) {
+            setText((value == null) ? "" : ((LocalDate) value).format(FORMATTER));
         }
     }
-    private static class StatusRenderer extends javax.swing.table.DefaultTableCellRenderer {
-    	private static final long serialVersionUID = 1L;
-        private final Color ongoingColor = new Color(204, 102, 0);
-        private final Color completedColor = new Color(0, 128, 0);
+
+    private static class StatusRenderer extends CenteredRenderer {
+        private static final long serialVersionUID = 1L;
+        private final Color ongoingColor = new Color(0, 119, 182);   // Blue
+        private final Color completedColor = new Color(0, 128, 0); // Dark Green
+
         @Override public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
             if (value instanceof Boolean) {
@@ -232,12 +262,13 @@ public class QuanLyTraGopView extends JPanel {
                 c.setForeground(isCompleted ? completedColor : ongoingColor);
                 setFont(c.getFont().deriveFont(Font.BOLD));
             }
-            setHorizontalAlignment(SwingConstants.CENTER); return c;
+            return c;
         }
     }
+    
     private static class StyledComboBoxUI extends BasicComboBoxUI {
         @Override protected JButton createArrowButton() {
-            return new javax.swing.plaf.basic.BasicArrowButton(SwingConstants.SOUTH, HEADER_BG_COLOR, HEADER_BG_COLOR, TITLE_COLOR, HEADER_BG_COLOR);
+            return new BasicArrowButton(SwingConstants.SOUTH, HEADER_BG_COLOR, HEADER_BG_COLOR, TITLE_COLOR, HEADER_BG_COLOR);
         }
     }
 }

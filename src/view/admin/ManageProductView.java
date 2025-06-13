@@ -5,41 +5,44 @@ import model.SanPham;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
-import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.util.List;
 import java.util.Locale;
-
 public class ManageProductView extends JPanel {
     private static final long serialVersionUID = 1L;
 
-    // --- Hằng số UI cho style nhất quán ---
-    private static final Color BG_COLOR = new Color(245, 245, 245);
+    // --- UI Constants ---
+    private static final Color BG_COLOR = new Color(248, 249, 250);
     private static final Color TITLE_COLOR = new Color(0, 102, 204);
-    private static final Color TABLE_HEADER_BG = new Color(32, 136, 203);
-    private static final Color PRIMARY_ACTION_COLOR = new Color(0, 123, 255); // Màu cho Tìm, Lọc
-    private static final Color SECONDARY_ACTION_COLOR = new Color(108, 117, 125); // Màu cho Tải lại
-    private static final Color SUCCESS_COLOR = new Color(40, 167, 69);      // Màu cho Thêm
-    private static final Color WARNING_COLOR = new Color(255, 193, 7);      // Màu cho Sửa
-    private static final Color DANGER_COLOR = new Color(220, 53, 69);       // Màu cho Xóa
+    private static final Color TABLE_HEADER_BG = new Color(52, 73, 94);
+    private static final Color ALT_ROW_COLOR = new Color(242, 242, 242);
+    private static final Color PRIMARY_ACTION_COLOR = new Color(0, 123, 255);
+    private static final Color SECONDARY_ACTION_COLOR = new Color(108, 117, 125);
+    private static final Color SUCCESS_COLOR = new Color(40, 167, 69);
+    private static final Color WARNING_COLOR = new Color(255, 193, 7);
+    private static final Color DANGER_COLOR = new Color(220, 53, 69);
+
+    private static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD, 28);
+    private static final Font FONT_BUTTON = new Font("Segoe UI", Font.BOLD, 14);
+    private static final Font FONT_TABLE_HEADER = new Font("Segoe UI", Font.BOLD, 15);
+    private static final Font FONT_TABLE = new Font("Segoe UI", Font.PLAIN, 14);
 
     // --- Components ---
     private JTable table;
     private DefaultTableModel tableModel;
     private JTextField tfSearch;
     private JComboBox<String> cbHangSX;
-    private TableRowSorter<DefaultTableModel> sorter;
     
     // --- Controller ---
     private final ManageProduct controller;
 
     public ManageProductView() {
-        // Thiết lập layout và border cho JPanel này
-        setLayout(new BorderLayout(10, 10));
+        setLayout(new BorderLayout(10, 15));
         setBorder(new EmptyBorder(15, 20, 15, 20));
         setBackground(BG_COLOR);
 
@@ -50,34 +53,9 @@ public class ManageProductView extends JPanel {
     }
 
     private void initUI() {
-        // --- Panel Header (chứa tiêu đề và các hành động trên cùng) ---
         add(createHeaderPanel(), BorderLayout.NORTH);
-
-        // --- Panel Bảng Dữ Liệu ---
-        tableModel = new DefaultTableModel(new String[]{
-                "Mã SP", "Tên Sản Phẩm", "Màu Sắc", "Giá Niêm Yết", "Nước SX", "Hãng SX", "Tồn Kho"
-        }, 0) {
-            private static final long serialVersionUID = 1L;
-            @Override
-            public boolean isCellEditable(int row, int column) { return false; }
-            @Override
-            public Class<?> getColumnClass(int columnIndex) {
-                if (columnIndex == 0 || columnIndex == 6) return Integer.class;
-                if (columnIndex == 3) return BigDecimal.class;
-                return String.class;
-            }
-        };
-        table = new JTable(tableModel);
-        sorter = new TableRowSorter<>(tableModel);
-        table.setRowSorter(sorter);
-
-        styleTable(table);
-        JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(224, 224, 224)));
-        add(scrollPane, BorderLayout.CENTER);
-
-        // --- Panel các nút chức năng ở dưới ---
-        add(createBottomButtonPanel(), BorderLayout.SOUTH);
+        add(createTablePanel(), BorderLayout.CENTER);
+        add(createActionPanel(), BorderLayout.SOUTH);
     }
     
     private JPanel createHeaderPanel() {
@@ -85,23 +63,21 @@ public class ManageProductView extends JPanel {
         headerPanel.setOpaque(false);
 
         JLabel lblTitle = new JLabel("Quản Lý Sản Phẩm", SwingConstants.CENTER);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        lblTitle.setFont(FONT_TITLE);
         lblTitle.setForeground(TITLE_COLOR);
         headerPanel.add(lblTitle, BorderLayout.NORTH);
 
         JPanel topActionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
         topActionPanel.setOpaque(false);
         
-        // --- Cải tiến các nút ở đây ---
         tfSearch = new JTextField(25);
         tfSearch.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-
-        JButton btnTim = createStyledButton("Tìm", PRIMARY_ACTION_COLOR);
         
+        JButton btnTim = createStyledButton("Tìm", PRIMARY_ACTION_COLOR);
         cbHangSX = new JComboBox<>();
         cbHangSX.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        cbHangSX.setPreferredSize(new Dimension(180, btnTim.getPreferredSize().height));
-        
+        cbHangSX.setPreferredSize(new Dimension(180, tfSearch.getPreferredSize().height + 10));
+
         JButton btnLoc = createStyledButton("Lọc", PRIMARY_ACTION_COLOR);
         JButton btnTaiLai = createStyledButton("Tải lại", SECONDARY_ACTION_COLOR);
         
@@ -115,8 +91,9 @@ public class ManageProductView extends JPanel {
         topActionPanel.add(btnTaiLai);
         headerPanel.add(topActionPanel, BorderLayout.CENTER);
         
-        // Gán sự kiện cho các nút trên cùng
+        // Event Listeners
         btnTim.addActionListener(e -> controller.searchByName(tfSearch.getText()));
+        tfSearch.addActionListener(e -> btnTim.doClick());
         btnLoc.addActionListener(e -> controller.filterByBrand((String) cbHangSX.getSelectedItem()));
         btnTaiLai.addActionListener(e -> {
             controller.loadProducts();
@@ -127,41 +104,73 @@ public class ManageProductView extends JPanel {
         return headerPanel;
     }
     
-    private JPanel createBottomButtonPanel() {
-        JPanel bottomButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        bottomButtonPanel.setOpaque(false);
+    private JScrollPane createTablePanel() {
+        tableModel = new DefaultTableModel(new String[]{"Mã SP", "Tên Sản Phẩm", "Màu Sắc", "Giá Niêm Yết", "Nước SX", "Hãng SX", "Tồn Kho"}, 0) {
+            private static final long serialVersionUID = 1L;
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+            @Override public Class<?> getColumnClass(int columnIndex) {
+                if (columnIndex == 0 || columnIndex == 6) return Integer.class;
+                if (columnIndex == 3) return BigDecimal.class;
+                return String.class;
+            }
+        };
+        
+        table = new JTable(tableModel) {
+            private static final long serialVersionUID = 1L;
+            @Override
+            public Component prepareRenderer(javax.swing.table.TableCellRenderer renderer, int row, int column) {
+                Component c = super.prepareRenderer(renderer, row, column);
+                if (!isRowSelected(row)) {
+                    c.setBackground(row % 2 == 0 ? Color.WHITE : ALT_ROW_COLOR);
+                }
+                return c;
+            }
+        };
+        styleTable(table);
+        
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(224, 224, 224)));
+        return scrollPane;
+    }
+    
+    private JPanel createActionPanel() {
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        actionPanel.setOpaque(false);
         
         JButton btnThem = createStyledButton("Thêm Sản Phẩm", SUCCESS_COLOR);
         JButton btnSua = createStyledButton("Sửa Sản Phẩm", WARNING_COLOR);
         JButton btnXoa = createStyledButton("Xóa Sản Phẩm", DANGER_COLOR);
         
-        bottomButtonPanel.add(btnThem);
-        bottomButtonPanel.add(btnSua);
-        bottomButtonPanel.add(btnXoa);
+        actionPanel.add(btnThem);
+        actionPanel.add(btnSua);
+        actionPanel.add(btnXoa);
 
-        // Gán sự kiện cho các nút dưới cùng
-        btnThem.addActionListener(e -> showAddForm());
+        btnThem.addActionListener(e -> showProductForm(null));
         btnSua.addActionListener(e -> showEditForm());
         btnXoa.addActionListener(e -> deleteSelectedProduct());
         
-        return bottomButtonPanel;
+        return actionPanel;
     }
-
+    
     private void styleTable(JTable tbl) {
         tbl.setFillsViewportHeight(true);
-        tbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        tbl.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 15));
-        tbl.getTableHeader().setOpaque(false);
+        tbl.setFont(FONT_TABLE);
+        tbl.getTableHeader().setFont(FONT_TABLE_HEADER);
         tbl.getTableHeader().setBackground(TABLE_HEADER_BG);
         tbl.getTableHeader().setForeground(Color.WHITE);
-        tbl.setRowHeight(30);
+        tbl.setRowHeight(32);
         tbl.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tbl.getTableHeader().setReorderingAllowed(false);
         tbl.setShowGrid(true);
         tbl.setGridColor(new Color(224, 224, 224));
+        tbl.setAutoCreateRowSorter(true);
 
-        // Renderer và định dạng cột
-        tbl.getColumnModel().getColumn(3).setCellRenderer(new CurrencyRenderer());
+        // TỐI ƯU: Thiết lập renderer để căn chỉnh nội dung
+        CenteredRenderer centeredRenderer = new CenteredRenderer();
+        tbl.setDefaultRenderer(String.class, centeredRenderer);
+        tbl.setDefaultRenderer(Integer.class, centeredRenderer);
+        tbl.setDefaultRenderer(BigDecimal.class, new CurrencyRenderer());
+
         TableColumnModel columnModel = tbl.getColumnModel();
         columnModel.getColumn(0).setMaxWidth(80);
         columnModel.getColumn(1).setPreferredWidth(300);
@@ -172,172 +181,107 @@ public class ManageProductView extends JPanel {
         columnModel.getColumn(6).setPreferredWidth(80);
     }
     
-    /**
-    * Tối ưu hóa phương thức tạo nút: linh hoạt, có hiệu ứng hover.
-    */
     private JButton createStyledButton(String text, Color backgroundColor) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btn.setFont(FONT_BUTTON);
         btn.setFocusPainted(false);
         btn.setBackground(backgroundColor);
         btn.setForeground(Color.WHITE);
-
-        // Nút màu vàng chữ đen cho dễ đọc
-        if (backgroundColor.equals(WARNING_COLOR)) {
-            btn.setForeground(Color.BLACK);
-        }
-
+        if (backgroundColor.equals(WARNING_COLOR)) btn.setForeground(Color.BLACK);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        // Dùng padding thay vì setPreferredSize để nút linh hoạt
         btn.setBorder(new EmptyBorder(10, 20, 10, 20));
-        
-        // Thêm hiệu ứng hover
         btn.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                btn.setBackground(backgroundColor.brighter());
-            }
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                btn.setBackground(backgroundColor);
-            }
+            public void mouseEntered(java.awt.event.MouseEvent evt) { btn.setBackground(backgroundColor.brighter()); }
+            public void mouseExited(java.awt.event.MouseEvent evt) { btn.setBackground(backgroundColor); }
         });
-        
         return btn;
     }
 
     public void updateTable(List<SanPham> list) {
-         tableModel.setRowCount(0);
+        tableModel.setRowCount(0);
         if (list != null) {
             for (SanPham sp : list) {
                 tableModel.addRow(new Object[]{
-                        sp.getMaSP(),
-                        sp.getTenSP(),
-                        sp.getMau(),
-                        sp.getGiaNiemYet(),
-                        sp.getNuocSX(),
-                        sp.getHangSX(),
-                        sp.getSoLuongTon() // Giả sử có phương thức này trong model SanPham
+                        sp.getMaSP(), sp.getTenSP(), sp.getMau(), sp.getGiaNiemYet(),
+                        sp.getNuocSX(), sp.getHangSX(), sp.getSoLuongTon()
                 });
             }
         }
     }
 
-    private void loadHangSXComboBox() {
+    public void loadHangSXComboBox() {
         cbHangSX.removeAllItems();
         cbHangSX.addItem("Tất cả");
         List<String> hangSXList = controller.getAllBrands();
         if (hangSXList != null) {
-            for (String hsx : hangSXList) {
-                cbHangSX.addItem(hsx);
-            }
+            hangSXList.forEach(cbHangSX::addItem);
         }
     }
     
-    // --- Các phương thức xử lý form và thông báo (giữ nguyên logic) ---
-    private void showAddForm() {
-        JPanel panel = createFormPanel(null);
-        int result = JOptionPane.showConfirmDialog(this, panel, "Thêm Sản Phẩm Mới",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (result == JOptionPane.OK_OPTION) {
-            try {
-                // Lấy component một cách an toàn hơn
-                Component[] components = panel.getComponents();
-                JTextField tfTen = (JTextField) components[1];
-                JTextField tfMau = (JTextField) components[3];
-                JSpinner spinnerDonGia = (JSpinner) components[5];
-                JTextField tfNuocSX = (JTextField) components[7];
-                JTextField tfHangSX = (JTextField) components[9];
-                
-                BigDecimal giaNiemYet = (BigDecimal) spinnerDonGia.getValue();
-                controller.addProduct(
-                    tfTen.getText().trim(),
-                    tfMau.getText().trim(),
-                    giaNiemYet,
-                    tfNuocSX.getText().trim(),
-                    tfHangSX.getText().trim()
-                );
-            } catch (Exception e) {
-                showMessage("Đã xảy ra lỗi khi xử lý dữ liệu: " + e.getMessage(), false);
-            }
-        }
-    }
-
     private void showEditForm() {
-        int selectedRowInView = table.getSelectedRow();
-        if (selectedRowInView == -1) {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow == -1) {
             showMessage("Vui lòng chọn một sản phẩm từ bảng để sửa.", false);
             return;
         }
-        int modelRow = table.convertRowIndexToModel(selectedRowInView);
-        SanPham spToEdit = controller.getProductById((int) tableModel.getValueAt(modelRow, 0));
+        int modelRow = table.convertRowIndexToModel(selectedRow);
+        int maSP = (int) tableModel.getValueAt(modelRow, 0);
+        SanPham spToEdit = controller.getProductById(maSP);
         
         if (spToEdit == null) {
-            showMessage("Không tìm thấy thông tin sản phẩm.", false);
+            showMessage("Không tìm thấy thông tin sản phẩm để sửa.", false);
             return;
         }
-
-        JPanel panel = createFormPanel(spToEdit);
-        int result = JOptionPane.showConfirmDialog(this, panel, "Sửa Thông Tin Sản Phẩm (Mã: " + spToEdit.getMaSP() + ")",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (result == JOptionPane.OK_OPTION) {
-             try {
-                Component[] components = panel.getComponents();
-                JTextField tfTen = (JTextField) components[3];
-                JTextField tfMau = (JTextField) components[5];
-                JSpinner spinnerDonGia = (JSpinner) components[7];
-                JTextField tfNuocSX = (JTextField) components[9];
-                JTextField tfHangSX = (JTextField) components[11];
-                BigDecimal giaNiemYetMoi = (BigDecimal) spinnerDonGia.getValue();
-                
-                controller.updateProduct(spToEdit.getMaSP(),
-                    tfTen.getText().trim(),
-                    tfMau.getText().trim(),
-                    giaNiemYetMoi,
-                    tfNuocSX.getText().trim(),
-                    tfHangSX.getText().trim()
-                );
-            } catch (Exception e) {
-                showMessage("Đã xảy ra lỗi khi xử lý dữ liệu: " + e.getMessage(), false);
-            }
-        }
+        showProductForm(spToEdit);
     }
     
-    private JPanel createFormPanel(SanPham sp) {
-        // Thay thế GridBagLayout bằng GridLayout để lấy component theo index an toàn hơn
-        JPanel formContentPanel = new JPanel(new GridLayout(0, 2, 10, 10));
-        formContentPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
-        String tenSP = (sp != null) ? sp.getTenSP() : "";
-        String mau = (sp != null) ? sp.getMau() : "";
-        BigDecimal gia = (sp != null) ? sp.getGiaNiemYet() : BigDecimal.ZERO;
-        String nuocSX = (sp != null) ? sp.getNuocSX() : "";
-        String hangSX = (sp != null) ? sp.getHangSX() : "";
+    private void showProductForm(SanPham sp) {
+        String title = (sp == null) ? "Thêm Sản Phẩm Mới" : "Sửa Thông Tin Sản Phẩm (Mã: " + sp.getMaSP() + ")";
         
-        JTextField tfTen = new JTextField(tenSP, 20);
-        JTextField tfMau = new JTextField(mau, 20);
-        JTextField tfNuocSX = new JTextField(nuocSX, 20);
-        JTextField tfHangSX = new JTextField(hangSX, 20);
+        // --- Tạo các components cho form một cách an toàn ---
+        JTextField tfTen = new JTextField(sp != null ? sp.getTenSP() : "", 20);
+        JTextField tfMau = new JTextField(sp != null ? sp.getMau() : "", 20);
+        JTextField tfNuocSX = new JTextField(sp != null ? sp.getNuocSX() : "", 20);
+        JTextField tfHangSX = new JTextField(sp != null ? sp.getHangSX() : "", 20);
         
-        SpinnerNumberModel giaModel = new SpinnerNumberModel(gia, BigDecimal.ZERO, new BigDecimal("9999999999"), new BigDecimal("100000"));
+        BigDecimal initialValue = (sp != null && sp.getGiaNiemYet() != null) ? sp.getGiaNiemYet() : BigDecimal.ZERO;
+        SpinnerNumberModel giaModel = new SpinnerNumberModel(initialValue, BigDecimal.ZERO, new BigDecimal("9999999999"), new BigDecimal("100000"));
         JSpinner spinnerDonGia = new JSpinner(giaModel);
-        JSpinner.NumberEditor editorDonGia = new JSpinner.NumberEditor(spinnerDonGia, "#,##0.##");
+        JSpinner.NumberEditor editorDonGia = new JSpinner.NumberEditor(spinnerDonGia, "#,##0");
         spinnerDonGia.setEditor(editorDonGia);
 
-        if(sp != null) {
-            formContentPanel.add(createLabel("Mã SP:"));
-            formContentPanel.add(new JLabel(String.valueOf(sp.getMaSP())));
-        }
-        formContentPanel.add(createLabel("Tên SP*:"));
-        formContentPanel.add(tfTen);
-        formContentPanel.add(createLabel("Màu:"));
-        formContentPanel.add(tfMau);
-        formContentPanel.add(createLabel("Giá Niêm Yết*:"));
-        formContentPanel.add(spinnerDonGia);
-        formContentPanel.add(createLabel("Nước SX:"));
-        formContentPanel.add(tfNuocSX);
-        formContentPanel.add(createLabel("Hãng SX:"));
-        formContentPanel.add(tfHangSX);
+        // --- Xây dựng panel với GridBagLayout để căn chỉnh đẹp ---
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        gbc.gridx = 0; gbc.gridy = 0; panel.add(createLabel("Tên SP*:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 0; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0; panel.add(tfTen, gbc);
         
-        return formContentPanel;
+        gbc.gridx = 0; gbc.gridy = 1; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0; panel.add(createLabel("Màu:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0; panel.add(tfMau, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 2; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0; panel.add(createLabel("Giá Niêm Yết*:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 2; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0; panel.add(spinnerDonGia, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 3; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0; panel.add(createLabel("Nước SX:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 3; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0; panel.add(tfNuocSX, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 4; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0; panel.add(createLabel("Hãng SX:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 4; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0; panel.add(tfHangSX, gbc);
+
+        // --- Hiển thị dialog và xử lý kết quả ---
+        int result = JOptionPane.showConfirmDialog(this, panel, title, JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result == JOptionPane.OK_OPTION) {
+            BigDecimal giaNiemYet = (BigDecimal) spinnerDonGia.getValue();
+            if (sp == null) { // Chế độ Thêm
+                controller.addProduct(tfTen.getText().trim(), tfMau.getText().trim(), giaNiemYet, tfNuocSX.getText().trim(), tfHangSX.getText().trim());
+            } else { // Chế độ Sửa
+                controller.updateProduct(sp.getMaSP(), tfTen.getText().trim(), tfMau.getText().trim(), giaNiemYet, tfNuocSX.getText().trim(), tfHangSX.getText().trim());
+            }
+        }
     }
     
     private JLabel createLabel(String text) {
@@ -347,16 +291,15 @@ public class ManageProductView extends JPanel {
     }
 
     private void deleteSelectedProduct() {
-        int selectedRowInView = table.getSelectedRow();
-        if (selectedRowInView == -1) {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow == -1) {
             showMessage("Vui lòng chọn một sản phẩm từ bảng để xóa.", false);
             return;
         }
-        int modelRow = table.convertRowIndexToModel(selectedRowInView);
+        int modelRow = table.convertRowIndexToModel(selectedRow);
         int maSP = (int) tableModel.getValueAt(modelRow, 0);
         String tenSP = (String) tableModel.getValueAt(modelRow, 1);
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "Bạn có chắc chắn muốn xóa sản phẩm:\n'" + tenSP + "' (Mã: " + maSP + ") không?",
+        int confirm = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn xóa sản phẩm:\n'" + tenSP + "' (Mã: " + maSP + ") không?",
                 "Xác Nhận Xóa Sản Phẩm", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (confirm == JOptionPane.YES_OPTION) {
             controller.deleteProduct(maSP);
@@ -364,24 +307,24 @@ public class ManageProductView extends JPanel {
     }
     
     public void showMessage(String message, boolean isSuccess) {
-        if (isSuccess) {
-            JOptionPane.showMessageDialog(this, message, "Thành Công", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            JOptionPane.showMessageDialog(this, message, "Lỗi", JOptionPane.ERROR_MESSAGE);
+        JOptionPane.showMessageDialog(this, message, isSuccess ? "Thành Công" : "Lỗi",
+                isSuccess ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.ERROR_MESSAGE);
+    }
+    
+    // --- Custom Table Cell Renderers ---
+
+    private static class CenteredRenderer extends DefaultTableCellRenderer {
+        private static final long serialVersionUID = 1L;
+        public CenteredRenderer() { setHorizontalAlignment(SwingConstants.CENTER); }
+    }
+
+    private static class CurrencyRenderer extends DefaultTableCellRenderer {
+        private static final long serialVersionUID = 1L;
+        private static final NumberFormat FORMAT = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
+        public CurrencyRenderer() { setHorizontalAlignment(SwingConstants.RIGHT); }
+        @Override
+        public void setValue(Object value) {
+            setText((value == null) ? FORMAT.format(0) : FORMAT.format(value));
         }
     }
-}
-
-class CurrencyRenderer extends javax.swing.table.DefaultTableCellRenderer {
- private static final long serialVersionUID = 1L;
- private static final NumberFormat FORMAT = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
-
- @Override
- public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-     if (value instanceof Number) {
-         value = FORMAT.format(value);
-     }
-     setHorizontalAlignment(SwingConstants.RIGHT); 
-     return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
- }
 }

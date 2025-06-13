@@ -22,12 +22,7 @@ public class KpiController {
         view.getSearchButton().addActionListener(e -> searchKpi());
         view.getUpdateButton().addActionListener(e -> finalizeKpi());
     }
-
-    /**
-     * Tải/Tìm kiếm KPI dựa trên tháng và năm đã chọn từ JComboBox.
-     */
     public void searchKpi() {
-        // *** SỬA LỖI TẠI ĐÂY: Dùng phương thức getter mới từ View ***
         int month = view.getSelectedMonth();
         int year = view.getSelectedYear();
         

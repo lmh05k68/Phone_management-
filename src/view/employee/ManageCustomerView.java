@@ -1,206 +1,240 @@
-package view.employee; 
-import java.util.ArrayList;
+package view.employee;
+
 import model.KhachHang;
 import query.KhachHangQuery;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
 import java.awt.*;
+import java.util.Collections;
 import java.util.List;
-
+import java.util.concurrent.ExecutionException;
 public class ManageCustomerView extends JFrame {
     private static final long serialVersionUID = 1L;
+
+    // --- UI Constants ---
+    private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 24);
+    private static final Font LABEL_FONT = new Font("Segoe UI", Font.PLAIN, 14);
+    private static final Font TABLE_HEADER_FONT = new Font("Segoe UI", Font.BOLD, 15);
+    private static final Font TABLE_FONT = new Font("Segoe UI", Font.PLAIN, 14);
+    private static final Font BUTTON_FONT = new Font("Segoe UI", Font.BOLD, 14);
+
+    private static final Color PRIMARY_COLOR = new Color(0, 123, 255);
+    private static final Color SECONDARY_COLOR = new Color(108, 117, 125);
+    private static final Color DANGER_COLOR = new Color(220, 53, 69);
+    private static final Color ALT_ROW_COLOR = new Color(242, 242, 242);
+
+    // --- Components ---
     private DefaultTableModel tableModel;
     private JTable table;
     private JTextField txtSearch;
 
-    public ManageCustomerView() { 
-        System.out.println("MANAGE_CUSTOMER_VIEW: Khởi tạo.");
+    public ManageCustomerView() {
         setTitle("Quản lý khách hàng có tài khoản");
-        setSize(900, 650); 
+        setSize(950, 650);
         setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); 
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         initUI();
-        loadCustomerData(); 
-    }
-
-    private JButton createStyledButton(String text) {
-        JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 14)); 
-        btn.setFocusPainted(false);
-        btn.setBackground(new Color(0, 123, 255)); 
-        btn.setForeground(Color.WHITE);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0, 86, 179), 1),
-                BorderFactory.createEmptyBorder(8, 18, 8, 18)
-        ));
-        return btn;
+        reloadData();
     }
 
     private void initUI() {
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+        JPanel mainPanel = new JPanel(new BorderLayout(10, 15));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
         mainPanel.setBackground(Color.WHITE);
 
-        JLabel lblTitle = new JLabel("Quản Lý Khách Hàng (Có Tài Khoản)");
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 24)); 
+        JLabel lblTitle = new JLabel("Quản Lý Khách Hàng");
+        lblTitle.setFont(TITLE_FONT);
         lblTitle.setHorizontalAlignment(SwingConstants.CENTER);
-        lblTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0)); 
         mainPanel.add(lblTitle, BorderLayout.NORTH);
 
-        // Search Panel
-        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        searchPanel.setOpaque(false);
-        searchPanel.add(new JLabel("Tìm kiếm (Tên/SĐT/Mã KH):")); // Thêm tìm theo Mã KH
-        txtSearch = new JTextField(30); // Tăng độ rộng
-        txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        JButton btnSearch = createStyledButton("Tìm");
-        JButton btnReload = createStyledButton("Tải lại");
-        btnReload.setBackground(new Color(108,117,125));
-        searchPanel.add(txtSearch);
-        searchPanel.add(btnSearch);
-        searchPanel.add(btnReload);
-        
-        JPanel topControlsPanel = new JPanel(new BorderLayout());
-        topControlsPanel.setOpaque(false);
-        topControlsPanel.add(searchPanel, BorderLayout.CENTER); 
-        JPanel tableContainerPanel = new JPanel(new BorderLayout());
-        tableContainerPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
-        String[] columns = {"Mã KH", "Họ Tên", "Số Điện Thoại", "Điểm Tích Lũy"};
-        tableModel = new DefaultTableModel(columns, 0) {
-        	private static final long serialVersionUID = 1L;
-            @Override public boolean isCellEditable(int row, int column) { return false; }
-        };
-        table = new JTable(tableModel);
-        styleTable(table);
-        JScrollPane scrollPane = new JScrollPane(table);
-        tableContainerPanel.add(scrollPane, BorderLayout.CENTER);
-        
-        JPanel centerContentPanel = new JPanel(new BorderLayout(0,10));
-        centerContentPanel.setOpaque(false);
-        centerContentPanel.add(topControlsPanel, BorderLayout.NORTH); // Search panel ở trên table
-        centerContentPanel.add(tableContainerPanel, BorderLayout.CENTER);
-        mainPanel.add(centerContentPanel, BorderLayout.CENTER);
-
-
-        // Bottom Button Panel
-        JPanel bottomButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        bottomButtonPanel.setOpaque(false);
-        bottomButtonPanel.setBorder(BorderFactory.createEmptyBorder(10,0,0,0));
-        JButton btnBack = createStyledButton("Trở về");
-        btnBack.setBackground(new Color(220,53,69)); // Màu đỏ cho nút trở về
-        bottomButtonPanel.add(btnBack);
-        mainPanel.add(bottomButtonPanel, BorderLayout.SOUTH);
+        mainPanel.add(createCenterPanel(), BorderLayout.CENTER);
+        mainPanel.add(createBottomPanel(), BorderLayout.SOUTH);
 
         setContentPane(mainPanel);
-
-        // Action Listeners
-        btnSearch.addActionListener(e -> {
-            System.out.println("MANAGE_CUSTOMER_VIEW: Nút 'Tìm' được nhấn.");
-            String keyword = txtSearch.getText().trim();
-            if (!keyword.isEmpty()) {
-                searchCustomers(keyword);
-            } else {
-                JOptionPane.showMessageDialog(this, "Vui lòng nhập từ khóa tìm kiếm.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
-
-        btnReload.addActionListener(e -> {
-            System.out.println("MANAGE_CUSTOMER_VIEW: Nút 'Tải lại' được nhấn.");
-            reloadData();
-        });
-
-        btnBack.addActionListener(e -> {
-            System.out.println("MANAGE_CUSTOMER_VIEW: Nút 'Trở về' được nhấn.");
-            dispose(); 
-        });
     }
-    
+
+    private JPanel createCenterPanel() {
+        JPanel centerPanel = new JPanel(new BorderLayout(0, 10));
+        centerPanel.setOpaque(false);
+        centerPanel.add(createTopPanel(), BorderLayout.NORTH);
+        centerPanel.add(createTablePanel(), BorderLayout.CENTER);
+        return centerPanel;
+    }
+
+    private JPanel createTopPanel() {
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        searchPanel.setOpaque(false);
+
+        JLabel lblSearch = new JLabel("Tìm kiếm (Tên/SĐT/Mã KH):");
+        lblSearch.setFont(LABEL_FONT);
+        searchPanel.add(lblSearch);
+
+        txtSearch = new JTextField(30);
+        txtSearch.setFont(LABEL_FONT);
+        searchPanel.add(txtSearch);
+
+        JButton btnSearch = createStyledButton("Tìm", PRIMARY_COLOR);
+        JButton btnReload = createStyledButton("Tải lại", SECONDARY_COLOR);
+        searchPanel.add(btnSearch);
+        searchPanel.add(btnReload);
+
+        // Action Listeners for top buttons
+        btnSearch.addActionListener(e -> searchCustomers());
+        txtSearch.addActionListener(e -> searchCustomers()); // Allow search on Enter key
+        btnReload.addActionListener(e -> reloadData());
+
+        return searchPanel;
+    }
+
+    private JScrollPane createTablePanel() {
+        String[] columns = {"Mã KH", "Họ Tên", "Số Điện Thoại", "Điểm Tích Lũy"};
+        tableModel = new DefaultTableModel(columns, 0) {
+            private static final long serialVersionUID = 1L;
+            @Override public boolean isCellEditable(int row, int column) { return false; }
+
+            // TỐI ƯU: Khai báo kiểu dữ liệu để sắp xếp chính xác
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                if (columnIndex == 0 || columnIndex == 3) {
+                    return Integer.class;
+                }
+                return String.class;
+            }
+        };
+
+        // TỐI ƯU: Sử dụng JTable tùy chỉnh để có màu xen kẽ
+        table = new JTable(tableModel) {
+            private static final long serialVersionUID = 1L;
+            @Override
+            public Component prepareRenderer(javax.swing.table.TableCellRenderer renderer, int row, int column) {
+                Component c = super.prepareRenderer(renderer, row, column);
+                if (!isRowSelected(row)) {
+                    c.setBackground(row % 2 == 0 ? Color.WHITE : ALT_ROW_COLOR);
+                }
+                return c;
+            }
+        };
+        
+        styleTable(table);
+        return new JScrollPane(table);
+    }
+
+    private JPanel createBottomPanel() {
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        bottomPanel.setOpaque(false);
+        bottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        JButton btnBack = createStyledButton("Trở về", DANGER_COLOR);
+        btnBack.addActionListener(e -> dispose());
+        bottomPanel.add(btnBack);
+        return bottomPanel;
+    }
+
     private void styleTable(JTable tbl) {
-        tbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        tbl.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-        tbl.setRowHeight(30); // Tăng chiều cao hàng
+        tbl.setFont(TABLE_FONT);
+        tbl.getTableHeader().setFont(TABLE_HEADER_FONT);
+        tbl.getTableHeader().setBackground(new Color(60, 63, 65));
+        tbl.getTableHeader().setForeground(Color.WHITE);
+        tbl.setRowHeight(32);
         tbl.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tbl.getTableHeader().setReorderingAllowed(false);
+        tbl.setAutoCreateRowSorter(true); // Bật chức năng sắp xếp
+
+        // TỐI ƯU: Áp dụng renderer để căn giữa cho tất cả các cột
+        CenteredRenderer centeredRenderer = new CenteredRenderer();
+        tbl.setDefaultRenderer(String.class, centeredRenderer);
+        tbl.setDefaultRenderer(Integer.class, centeredRenderer);
 
         TableColumnModel columnModel = tbl.getColumnModel();
-        columnModel.getColumn(0).setPreferredWidth(80);  // Mã KH
-        columnModel.getColumn(0).setMinWidth(60);
-        columnModel.getColumn(1).setPreferredWidth(250); // Họ Tên
-        columnModel.getColumn(1).setMinWidth(150);
-        columnModel.getColumn(2).setPreferredWidth(150); // SĐT
-        columnModel.getColumn(2).setMinWidth(100);
-        columnModel.getColumn(3).setPreferredWidth(120); // Điểm
-        columnModel.getColumn(3).setMinWidth(100);
+        columnModel.getColumn(0).setPreferredWidth(80);
+        columnModel.getColumn(1).setPreferredWidth(250);
+        columnModel.getColumn(2).setPreferredWidth(150);
+        columnModel.getColumn(3).setPreferredWidth(120);
     }
 
-
-    private void loadCustomerData() {
-        System.out.println("MANAGE_CUSTOMER_VIEW: Bắt đầu loadCustomerData.");
-        List<KhachHang> customers = KhachHangQuery.getCustomersWithAccounts();
-        tableModel.setRowCount(0); 
-        if (customers != null && !customers.isEmpty()) {
-            for (KhachHang kh : customers) {
-                tableModel.addRow(new Object[]{
-                        kh.getMaKH(), // MaKH là int
-                        kh.getHoTen(), 
-                        kh.getSdtKH(), 
-                        kh.getSoDiemTichLuy()
-                });
-            }
-            System.out.println("MANAGE_CUSTOMER_VIEW: Đã tải " + customers.size() + " khách hàng.");
-        } else {
-            System.out.println("MANAGE_CUSTOMER_VIEW: Không có khách hàng nào có tài khoản để hiển thị.");
-        }
-    }
-
-    private void searchCustomers(String keyword) {
-        System.out.println("MANAGE_CUSTOMER_VIEW: Bắt đầu searchCustomers với keyword: " + keyword);
-        tableModel.setRowCount(0); 
-        // KhachHangQuery.searchCustomersWithAccounts cần được cập nhật để có thể tìm theo cả MaKH (int)
-        // Hiện tại nó chỉ tìm theo Tên/SĐT (String). Cần logic để phân biệt.
-        List<KhachHang> customers;
-        try { // Thử parse keyword thành int để tìm theo MaKH
-             int maKHSearch = Integer.parseInt(keyword);
-             KhachHang kh = KhachHangQuery.getKhachHangById(maKHSearch);
-             customers = new ArrayList<>();
-             if (kh != null) customers.add(kh);
-        } catch (NumberFormatException e) { // Nếu không phải số, tìm theo tên/sđt
-             customers = KhachHangQuery.searchCustomersWithAccounts(keyword);
-        }
-
-        if (customers != null && !customers.isEmpty()) {
-            for (KhachHang kh : customers) {
-                tableModel.addRow(new Object[]{
-                        kh.getMaKH(), kh.getHoTen(), kh.getSdtKH(), kh.getSoDiemTichLuy()
-                });
-            }
-            System.out.println("MANAGE_CUSTOMER_VIEW: Tìm thấy " + customers.size() + " khách hàng.");
-        } else {
-            System.out.println("MANAGE_CUSTOMER_VIEW: Không tìm thấy khách hàng nào khớp với từ khóa.");
-             JOptionPane.showMessageDialog(this, "Không tìm thấy khách hàng nào khớp với: '" + keyword + "'", "Kết quả tìm kiếm", JOptionPane.INFORMATION_MESSAGE);
-        }
+    private JButton createStyledButton(String text, Color color) {
+        JButton btn = new JButton(text);
+        btn.setFont(BUTTON_FONT);
+        btn.setFocusPainted(false);
+        btn.setBackground(color);
+        btn.setForeground(Color.WHITE);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setBorder(BorderFactory.createEmptyBorder(8, 20, 8, 20));
+        return btn;
     }
 
     private void reloadData() {
-        System.out.println("MANAGE_CUSTOMER_VIEW: Bắt đầu reloadData.");
-        txtSearch.setText(""); 
-        loadCustomerData();
+        txtSearch.setText("");
+        loadCustomerData(null); // Tải tất cả khách hàng
     }
-    // Main method để test
-     public static void main(String[] args) {
-         try {
-             for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                 if ("Nimbus".equals(info.getName())) {
-                     UIManager.setLookAndFeel(info.getClassName());
-                     break;
-                 }
-             }
-         } catch (Exception e) {
-             System.err.println("Không thể áp dụng Nimbus Look and Feel: " + e.getMessage());
-         }
-         SwingUtilities.invokeLater(() -> new ManageCustomerView(/* Bỏ maNV nếu không cần */).setVisible(true));
-     }
+
+    private void searchCustomers() {
+        String keyword = txtSearch.getText().trim();
+        if (keyword.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập từ khóa tìm kiếm.", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        loadCustomerData(keyword); // Tìm kiếm theo từ khóa
+    }
+
+    /**
+     * Tải dữ liệu khách hàng (toàn bộ hoặc tìm kiếm) trong một luồng nền.
+     * @param keyword Từ khóa tìm kiếm. Nếu là null, tải tất cả khách hàng.
+     */
+    private void loadCustomerData(String keyword) {
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        tableModel.setRowCount(0);
+
+        SwingWorker<List<KhachHang>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected List<KhachHang> doInBackground() {
+                if (keyword == null || keyword.isEmpty()) {
+                    return KhachHangQuery.getCustomersWithAccounts();
+                } else {
+                    try {
+                        int maKHSearch = Integer.parseInt(keyword);
+                        KhachHang kh = KhachHangQuery.getKhachHangById(maKHSearch);
+                        return (kh != null) ? List.of(kh) : Collections.emptyList();
+                    } catch (NumberFormatException e) {
+                        return KhachHangQuery.searchCustomersWithAccounts(keyword);
+                    }
+                }
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<KhachHang> customers = get();
+                    for (KhachHang kh : customers) {
+                        tableModel.addRow(new Object[]{
+                                kh.getMaKH(),
+                                kh.getHoTen(),
+                                kh.getSdtKH(),
+                                kh.getSoDiemTichLuy()
+                        });
+                    }
+                    if (customers.isEmpty() && keyword != null) {
+                        JOptionPane.showMessageDialog(ManageCustomerView.this,
+                                "Không tìm thấy khách hàng nào khớp với: '" + keyword + "'",
+                                "Kết quả tìm kiếm", JOptionPane.INFORMATION_MESSAGE);
+                    }
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(ManageCustomerView.this,
+                            "Lỗi khi tải dữ liệu khách hàng.", "Lỗi hệ thống", JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            }
+        };
+        worker.execute();
+    }
+    private static class CenteredRenderer extends DefaultTableCellRenderer {
+        private static final long serialVersionUID = 1L;
+        public CenteredRenderer() {
+            setHorizontalAlignment(SwingConstants.CENTER);
+        }
+    }
 }

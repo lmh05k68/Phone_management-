@@ -2,17 +2,17 @@ package view.admin;
 
 import javax.swing.*;
 import java.awt.*;
-import controller.common.AuthManager;
-
+import controller.common.AuthManager; 
 public class AdminView extends JFrame {
     private static final long serialVersionUID = 1L;
 
-    // --- Style Constants (đồng bộ với EmployeeView) ---
-    private final Color FUNCTION_BUTTON_COLOR = new Color(0, 123, 255); // Xanh dương cho các chức năng chính
-    private final Color DANGER_ACTION_COLOR = new Color(220, 53, 69);   // Đỏ cho các hành động nguy hiểm (Đăng xuất)
+    // --- Style Constants ---
+    private final Color FUNCTION_BUTTON_COLOR = new Color(0, 123, 255);
+    private final Color DANGER_ACTION_COLOR = new Color(220, 53, 69);   
     
     // --- Components ---
     private JButton btnThongKe;
+    private JButton btnXemBangLuong; // THÊM MỚI: Nút xem bảng lương
     private JButton btnQuanLyNhanVien;
     private JButton btnQuanLySanPham;
     private JButton btnQuanLyNhaCungCap;
@@ -28,8 +28,7 @@ public class AdminView extends JFrame {
 
         initUI();
         pack();
-        // Đặt kích thước tối thiểu để đảm bảo giao diện không bị quá nhỏ
-        setMinimumSize(new Dimension(450, 600));
+        setMinimumSize(new Dimension(450, 650)); // Tăng chiều cao một chút cho nút mới
     }
 
     private void initUI() {
@@ -44,20 +43,21 @@ public class AdminView extends JFrame {
         lblTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 25, 0));
         mainPanel.add(lblTitle);
 
-        // --- Button Panel (sử dụng BoxLayout giống EmployeeView) ---
+        // --- Button Panel ---
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
-        buttonPanel.setOpaque(false); // Nền trong suốt để lấy nền của mainPanel
+        buttonPanel.setOpaque(false);
 
-        // Khởi tạo các nút với màu sắc đã đồng bộ
+        // Khởi tạo các nút
         btnThongKe = createStyledButton("Thống Kê Kinh Doanh", FUNCTION_BUTTON_COLOR);
+        btnXemBangLuong = createStyledButton("Xem Bảng Lương Nhân Viên", FUNCTION_BUTTON_COLOR); // THÊM MỚI
         btnQuanLyNhanVien = createStyledButton("Quản Lý Nhân Viên", FUNCTION_BUTTON_COLOR);
         btnQuanLySanPham = createStyledButton("Quản Lý Sản Phẩm", FUNCTION_BUTTON_COLOR);
         btnQuanLyNhaCungCap = createStyledButton("Quản Lý Nhà Cung Cấp", FUNCTION_BUTTON_COLOR);
         btnQuanLyTraGop = createStyledButton("Quản Lý Trả Góp", FUNCTION_BUTTON_COLOR);
         btnQuanLyKpi = createStyledButton("Quản Lý KPI Nhân Viên", FUNCTION_BUTTON_COLOR);
 
-        // Thêm các nút vào panel với khoảng cách nhất quán
+        // Thêm các nút vào panel (đặt "Xem Bảng Lương" gần "Quản Lý KPI")
         buttonPanel.add(btnThongKe);
         buttonPanel.add(Box.createVerticalStrut(12));
         buttonPanel.add(btnQuanLyNhanVien);
@@ -69,10 +69,11 @@ public class AdminView extends JFrame {
         buttonPanel.add(btnQuanLyTraGop);
         buttonPanel.add(Box.createVerticalStrut(12));
         buttonPanel.add(btnQuanLyKpi);
+        buttonPanel.add(Box.createVerticalStrut(12));
+        buttonPanel.add(btnXemBangLuong); // THÊM MỚI
 
         mainPanel.add(buttonPanel);
 
-        // Đẩy nút Logout xuống dưới cùng
         mainPanel.add(Box.createVerticalGlue()); 
         mainPanel.add(Box.createVerticalStrut(25));
 
@@ -93,21 +94,27 @@ public class AdminView extends JFrame {
         btnQuanLyTraGop.addActionListener(e -> showPanelInNewFrame(new QuanLyTraGopView(), "Quản Lý Phiếu Trả Góp"));
         btnQuanLyKpi.addActionListener(e -> showPanelInNewFrame(new KpiManagementView(), "Quản Lý KPI"));
         
+        // THÊM MỚI: Hành động cho nút xem bảng lương
+        btnXemBangLuong.addActionListener(e -> showPanelInNewFrame(new SalaryReportView(), "Báo Cáo Bảng Lương"));
+        
         btnLogout.addActionListener(e -> AuthManager.logout(this));
     }
+    
     private void showPanelInNewFrame(JPanel panel, String title) {
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame(title);
             frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
             frame.getContentPane().add(panel);
             frame.pack();
+            // Đặt kích thước tối thiểu để đảm bảo giao diện không bị quá nhỏ
             if (frame.getWidth() < 800 || frame.getHeight() < 600) {
-                 frame.setSize(1100, 700);
+                 frame.setSize(1000, 650); // Tăng kích thước mặc định cho hợp lý
             }
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
         });
     }
+
     private JButton createStyledButton(String text, Color backgroundColor) {
         JButton btn = new JButton(text);
         btn.setFont(new Font("Segoe UI", Font.BOLD, 16));
@@ -117,7 +124,7 @@ public class AdminView extends JFrame {
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(backgroundColor.darker(), 1),
-            BorderFactory.createEmptyBorder(12, 30, 12, 30) // Tăng padding
+            BorderFactory.createEmptyBorder(12, 30, 12, 30)
         ));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
         btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, btn.getPreferredSize().height + 10));

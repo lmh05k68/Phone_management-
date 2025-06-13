@@ -1,11 +1,12 @@
 package view.customer;
-import javax.swing.border.EmptyBorder;
+
 import model.ChiTietDonHang;
 import model.HoaDonXuat;
 import query.HoaDonXuatQuery;
 import query.SPCuTheQuery;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
@@ -18,12 +19,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-
+import java.util.concurrent.ExecutionException;
 public class PurchaseHistoryView extends JFrame {
 
     private static final long serialVersionUID = 1L;
-
-    // --- Hằng số UI cho style nhất quán ---
     private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 24);
     private static final Font TABLE_HEADER_FONT = new Font("Segoe UI", Font.BOLD, 15);
     private static final Font TABLE_FONT = new Font("Segoe UI", Font.PLAIN, 14);
@@ -71,7 +70,6 @@ public class PurchaseHistoryView extends JFrame {
             private static final long serialVersionUID = 1L;
             @Override public boolean isCellEditable(int row, int column) { return false; }
 
-            // TỐI ƯU: Định nghĩa kiểu dữ liệu cho từng cột để sắp xếp đúng
             @Override
             public Class<?> getColumnClass(int columnIndex) {
                 switch (columnIndex) {
@@ -85,6 +83,7 @@ public class PurchaseHistoryView extends JFrame {
         };
         historyTable = new JTable(tableModel);
         styleTable(historyTable);
+
         JScrollPane tableScrollPane = new JScrollPane(historyTable);
         tableScrollPane.setBorder(BorderFactory.createTitledBorder("Danh sách hóa đơn"));
 
@@ -96,10 +95,7 @@ public class PurchaseHistoryView extends JFrame {
         detailScrollPane.setBorder(BorderFactory.createTitledBorder("Chi tiết hóa đơn đã chọn"));
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, tableScrollPane, detailScrollPane);
-        
-        // SỬA LỖI & TỐI ƯU: Cân đối lại tỷ lệ hiển thị
-        splitPane.setResizeWeight(0.45); // Phân bổ không gian khi resize
-        splitPane.setDividerLocation(0.45); // Đặt vị trí thanh chia ban đầu ở 45%
+        splitPane.setResizeWeight(0.45);
 
         historyTable.getSelectionModel().addListSelectionListener(event -> {
             if (!event.getValueIsAdjusting() && historyTable.getSelectedRow() != -1) {
@@ -122,6 +118,9 @@ public class PurchaseHistoryView extends JFrame {
         return bottomPanel;
     }
 
+    /**
+     * Áp dụng style và các renderer tùy chỉnh cho bảng.
+     */
     private void styleTable(JTable table) {
         table.setFillsViewportHeight(true);
         table.setFont(TABLE_FONT);
@@ -131,13 +130,17 @@ public class PurchaseHistoryView extends JFrame {
         table.setRowHeight(30);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.getTableHeader().setReorderingAllowed(false);
-        
-        // TỐI ƯU: Sử dụng renderer để định dạng dữ liệu, giúp sắp xếp đúng
+        table.setAutoCreateRowSorter(true); // Cho phép sắp xếp
+
+        // Áp dụng các renderer để định dạng và căn chỉnh
         table.setDefaultRenderer(LocalDate.class, new DateRenderer());
         table.setDefaultRenderer(BigDecimal.class, new CurrencyRenderer());
+        
+        // TỐI ƯU: Căn giữa cho cột Mã HĐ (Integer)
+        table.getColumnModel().getColumn(0).setCellRenderer(new CenteredRenderer());
 
         TableColumnModel columnModel = table.getColumnModel();
-        columnModel.getColumn(0).setMaxWidth(80);
+        columnModel.getColumn(0).setMaxWidth(100);
         columnModel.getColumn(1).setPreferredWidth(120);
         columnModel.getColumn(2).setPreferredWidth(180);
         columnModel.getColumn(3).setPreferredWidth(180);
@@ -163,6 +166,9 @@ public class PurchaseHistoryView extends JFrame {
         return btn;
     }
 
+    /**
+     * Tải danh sách hóa đơn của khách hàng từ CSDL trong một luồng nền.
+     */
     private void loadPurchaseHistory() {
         tableModel.setRowCount(0);
         txtChiTietDonHang.setText("Đang tải lịch sử mua hàng, vui lòng đợi...");
@@ -177,7 +183,7 @@ public class PurchaseHistoryView extends JFrame {
             protected void done() {
                 try {
                     currentDisplayedOrders = get();
-                    if (currentDisplayedOrders.isEmpty()) {
+                    if (currentDisplayedOrders == null || currentDisplayedOrders.isEmpty()) {
                         txtChiTietDonHang.setText("Bạn chưa có lịch sử mua hàng.");
                         return;
                     }
@@ -185,14 +191,16 @@ public class PurchaseHistoryView extends JFrame {
                     for (HoaDonXuat hd : currentDisplayedOrders) {
                         BigDecimal thanhTien = hd.getThanhTien() != null ? hd.getThanhTien() : BigDecimal.ZERO;
                         BigDecimal mucThuePercent = hd.getMucThue() != null ? hd.getMucThue() : BigDecimal.ZERO;
+                        
+                        // Tối ưu: Tính ngược tiền trước thuế từ tổng tiền và mức thuế.
+                        // Đây là cách hiệu quả nhất để hiển thị trên bảng mà không cần truy vấn CSDL thêm cho mỗi dòng.
                         BigDecimal motCongThue = BigDecimal.ONE.add(mucThuePercent.divide(new BigDecimal(100)));
                         
                         BigDecimal tienTruocThue = BigDecimal.ZERO;
                         if (motCongThue.compareTo(BigDecimal.ZERO) != 0) {
                              tienTruocThue = thanhTien.divide(motCongThue, 2, RoundingMode.HALF_UP);
                         }
-                        
-                        // TỐI ƯU: Thêm đối tượng gốc vào model để sắp xếp đúng
+
                         tableModel.addRow(new Object[]{
                             hd.getMaHDX(),
                             hd.getNgayLap(),
@@ -201,10 +209,13 @@ public class PurchaseHistoryView extends JFrame {
                         });
                     }
 
+                    // Tự động chọn dòng đầu tiên nếu có dữ liệu
                     if (tableModel.getRowCount() > 0) {
                         historyTable.setRowSelectionInterval(0, 0);
+                    } else {
+                        txtChiTietDonHang.setText("Bạn chưa có lịch sử mua hàng.");
                     }
-                } catch (Exception e) {
+                } catch (InterruptedException | ExecutionException e) {
                     txtChiTietDonHang.setText("Lỗi khi tải lịch sử mua hàng: " + e.getMessage());
                     e.printStackTrace();
                 }
@@ -213,10 +224,14 @@ public class PurchaseHistoryView extends JFrame {
         worker.execute();
     }
 
+    /**
+     * Tải và hiển thị chi tiết của một hóa đơn đã chọn.
+     * @param selectedHD Hóa đơn được chọn từ bảng.
+     */
     private void displayOrderDetails(HoaDonXuat selectedHD) {
         if (selectedHD == null) return;
-        
-        // Chi tiết hóa đơn được tải trong luồng riêng để không làm chậm việc chọn dòng
+
+        txtChiTietDonHang.setText("Đang tải chi tiết hóa đơn #" + selectedHD.getMaHDX() + "...");
         SwingWorker<String, Void> detailWorker = new SwingWorker<>() {
             @Override
             protected String doInBackground() throws Exception {
@@ -228,9 +243,9 @@ public class PurchaseHistoryView extends JFrame {
             protected void done() {
                 try {
                     txtChiTietDonHang.setText(get());
-                    txtChiTietDonHang.setCaretPosition(0);
+                    txtChiTietDonHang.setCaretPosition(0); // Cuộn lên đầu
                 } catch (Exception e) {
-                    txtChiTietDonHang.setText("Lỗi khi tải chi tiết hóa đơn.");
+                    txtChiTietDonHang.setText("Lỗi khi tải chi tiết hóa đơn: " + e.getMessage());
                     e.printStackTrace();
                 }
             }
@@ -238,44 +253,54 @@ public class PurchaseHistoryView extends JFrame {
         detailWorker.execute();
     }
 
+    /**
+     * Định dạng chi tiết hóa đơn thành một chuỗi String để hiển thị.
+     */
     private String formatOrderDetails(HoaDonXuat hd, List<ChiTietDonHang> chiTietList) {
         NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
         DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
         StringBuilder details = new StringBuilder();
-        details.append(String.format("CHI TIẾT HÓA ĐƠN SỐ: %d | NGÀY: %s\n",
+        details.append(String.format(" CHI TIẾT HÓA ĐƠN SỐ: %-8d | NGÀY: %s\n",
                 hd.getMaHDX(), hd.getNgayLap().format(dateFormat)));
         details.append("=================================================================\n\n");
-        details.append(String.format("%-20s | %-30s | %15s\n", "Mã Sản Phẩm", "Tên Sản Phẩm (Màu)", "Giá Bán"));
+        details.append(String.format(" %-18s | %-30s | %15s\n", "Mã Sản Phẩm", "Tên Sản Phẩm (Màu)", "Giá Bán"));
         details.append("-----------------------------------------------------------------\n");
 
         BigDecimal tongTienTruocThue = BigDecimal.ZERO;
         if (chiTietList == null || chiTietList.isEmpty()) {
-            details.append("Không tìm thấy chi tiết sản phẩm cho hóa đơn này.\n");
+            details.append(" Không tìm thấy chi tiết sản phẩm cho hóa đơn này.\n");
         } else {
+            // Tính tổng tiền các sản phẩm (chính là tiền trước thuế) từ chi tiết
             for (ChiTietDonHang ct : chiTietList) {
                 BigDecimal giaXuat = ct.getGiaXuat() != null ? ct.getGiaXuat() : BigDecimal.ZERO;
-                details.append(String.format("%-20s | %-30.30s | %15s\n",
-                        ct.getMaSPCuThe(), ct.getTenSP() + " (" + ct.getMau() + ")", currencyFormat.format(giaXuat)));
+                String tenSPdaydu = ct.getTenSP() + " (" + ct.getMau() + ")";
+                details.append(String.format(" %-18s | %-30.30s | %15s\n",
+                        ct.getMaSPCuThe(), tenSPdaydu, currencyFormat.format(giaXuat)));
                 tongTienTruocThue = tongTienTruocThue.add(giaXuat);
             }
         }
         
         details.append("-----------------------------------------------------------------\n");
-        details.append(String.format("%54s %15s\n", "Tổng tiền hàng:", currencyFormat.format(tongTienTruocThue)));
+        details.append(String.format("%54s %15s\n", "Tiền hàng:", currencyFormat.format(tongTienTruocThue)));
         
-        BigDecimal mucThue = hd.getMucThue() != null ? hd.getMucThue() : BigDecimal.ZERO;
-        BigDecimal tienThue = tongTienTruocThue.multiply(mucThue.divide(new BigDecimal(100), 2, RoundingMode.HALF_UP));
-        details.append(String.format("%54s %15s\n", "Thuế VAT (" + mucThue.stripTrailingZeros().toPlainString() + "%):", currencyFormat.format(tienThue)));
+        BigDecimal mucThuePercent = hd.getMucThue() != null ? hd.getMucThue() : BigDecimal.ZERO;
+        BigDecimal tienThue = tongTienTruocThue.multiply(mucThuePercent.divide(new BigDecimal(100)));
+        details.append(String.format("%54s %15s\n", "Thuế VAT (" + mucThuePercent.stripTrailingZeros().toPlainString() + "%):", currencyFormat.format(tienThue)));
         
         details.append("=================================================================\n");
+        // Luôn hiển thị tổng thanh toán được lưu trong CSDL làm con số cuối cùng
         BigDecimal tongThanhToan = hd.getThanhTien() != null ? hd.getThanhTien() : BigDecimal.ZERO;
         details.append(String.format("%54s %15s\n", "TỔNG THANH TOÁN:", currencyFormat.format(tongThanhToan)));
 
         return details.toString();
     }
+    
+    // --- CÁC LỚP RENDERER TÙY CHỈNH ---
 
-    // --- Các lớp Renderer tùy chỉnh ---
+    /**
+     * Renderer để định dạng giá trị tiền tệ và căn phải.
+     */
     private static class CurrencyRenderer extends DefaultTableCellRenderer {
         private static final long serialVersionUID = 1L;
         private static final NumberFormat FORMATTER = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
@@ -285,11 +310,14 @@ public class PurchaseHistoryView extends JFrame {
             if (value instanceof BigDecimal) {
                 setText(FORMATTER.format(value));
             }
-            setHorizontalAlignment(SwingConstants.RIGHT);
+            setHorizontalAlignment(SwingConstants.RIGHT); // Tiền tệ luôn căn phải
             return this;
         }
     }
     
+    /**
+     * Renderer để định dạng ngày tháng và căn giữa.
+     */
     private static class DateRenderer extends DefaultTableCellRenderer {
         private static final long serialVersionUID = 1L;
         private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -299,6 +327,19 @@ public class PurchaseHistoryView extends JFrame {
             if (value instanceof LocalDate) {
                 setText(((LocalDate) value).format(FORMATTER));
             }
+            setHorizontalAlignment(SwingConstants.CENTER);
+            return this;
+        }
+    }
+
+    /**
+     * Renderer để căn giữa nội dung trong ô.
+     */
+    private static class CenteredRenderer extends DefaultTableCellRenderer {
+        private static final long serialVersionUID = 1L;
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
             setHorizontalAlignment(SwingConstants.CENTER);
             return this;
         }

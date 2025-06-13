@@ -13,18 +13,9 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
-
 public class SellProduct {
-
-    /**
-     * Xử lý nghiệp vụ bán hàng trong một transaction an toàn.
-     * @param maNV Mã nhân viên thực hiện.
-     * @param maKH Mã khách hàng (có thể null).
-     * @param dsMaSPCuThe Danh sách các sản phẩm trong giỏ hàng.
-     * @param suDungDiem True nếu khách hàng chọn dùng điểm để giảm giá.
-     * @param tongTienGoc Tổng tiền gốc của các sản phẩm trong giỏ (dùng để tính điểm tích lũy).
-     * @return MaHDX của hóa đơn mới nếu thành công, ngược lại trả về null.
-     */
+    private static final BigDecimal VAT_RATE_PERCENT = new BigDecimal("10.00"); // 10%
+    private static final BigDecimal VAT_RATE_CALC = new BigDecimal("0.10"); 
     public Integer banHang(int maNV, Integer maKH, List<String> dsMaSPCuThe, boolean suDungDiem, BigDecimal tongTienGoc) {
 
         if (dsMaSPCuThe == null || dsMaSPCuThe.isEmpty()) {
@@ -35,67 +26,81 @@ public class SellProduct {
         Connection conn = null;
         try {
             conn = DBConnection.getConnection();
-            conn.setAutoCommit(false); // BẮT ĐẦU TRANSACTION
-
-            // BƯỚC 1: TẠO HÓA ĐƠN MỚI
-            // ThanhTien sẽ được trigger tính toán sau khi sản phẩm được gán vào
-            BigDecimal mucThue = new BigDecimal("10.00"); // Thuế VAT 10%
-            HoaDonXuat hdx = new HoaDonXuat(LocalDate.now(), mucThue, maNV, maKH != null ? maKH : 0);
-            Integer maHDXGenerated = HoaDonXuatQuery.insertHoaDonXuatAndGetId(hdx, conn);
-
-            if (maHDXGenerated == null) {
-                throw new SQLException("Không thể tạo hóa đơn mới.");
+            conn.setAutoCommit(false); 
+            BigDecimal tienGiamGia = BigDecimal.ZERO;
+            int soDiemCanDung = 0;
+            if (maKH != null && suDungDiem) {
+                int diemHienTai = KhachHangQuery.getSoDiemTichLuy(maKH, conn);
+                int phanTramGiam = Math.min(diemHienTai / 100, 20); // 100 điểm = 1%, tối đa 20%
+                
+                if (phanTramGiam > 0) {
+                    soDiemCanDung = phanTramGiam * 100;
+                    BigDecimal discountRate = new BigDecimal(phanTramGiam).divide(new BigDecimal(100));
+                    tienGiamGia = tongTienGoc.multiply(discountRate).setScale(0, RoundingMode.HALF_UP);
+                }
             }
 
-            // BƯỚC 2: GÁN CÁC SẢN PHẨM VÀO HÓA ĐƠN
-            // Trigger sẽ tự động cập nhật trạng thái sản phẩm và tổng tiền hóa đơn
+            BigDecimal tienSauGiamGia = tongTienGoc.subtract(tienGiamGia);
+            BigDecimal tienThue = tienSauGiamGia.multiply(VAT_RATE_CALC).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal thanhTienCuoiCung = tienSauGiamGia.add(tienThue);
+
+            // --- BƯỚC 2: TẠO HÓA ĐƠN XUẤT VỚI DỮ LIỆU ĐÃ TÍNH TOÁN ---
+
+            HoaDonXuat hdx = new HoaDonXuat();
+            hdx.setNgayLap(LocalDate.now());
+            hdx.setThanhTien(thanhTienCuoiCung); // SỬA LỖI QUAN TRỌNG: Gán Thành Tiền đã tính toán
+            hdx.setMucThue(VAT_RATE_PERCENT);   // Gán Mức Thuế là 10.00
+            hdx.setMaNV(maNV);
+            hdx.setMaKH(maKH != null ? maKH : 0); // Giả sử 0 là khách lẻ (hoặc dùng mã KH mặc định)
+
+            Integer maHDXGenerated = HoaDonXuatQuery.insertHoaDonXuatAndGetId(hdx, conn);
+            if (maHDXGenerated == null) {
+                throw new SQLException("Không thể tạo hóa đơn mới trong CSDL.");
+            }
+
+            // --- BƯỚC 3: CẬP NHẬT TRẠNG THÁI SẢN PHẨM ---
             int updatedProducts = SPCuTheQuery.assignProductsToInvoice(dsMaSPCuThe, maHDXGenerated, conn);
             if (updatedProducts != dsMaSPCuThe.size()) {
+                // Lỗi này xảy ra khi có người khác đã mua 1 trong các sản phẩm này
                 throw new SQLException("Một hoặc nhiều sản phẩm đã được bán hoặc không còn tồn tại. Vui lòng làm mới danh sách sản phẩm.");
             }
 
-            // BƯỚC 3: XỬ LÝ ĐIỂM THƯỞNG CHO KHÁCH HÀNG THÂN THIẾT
+            // --- BƯỚC 4: XỬ LÝ ĐIỂM THƯỞNG CHO KHÁCH HÀNG (NẾU CÓ) ---
             if (maKH != null) {
-                if (suDungDiem) {
-                    // Kịch bản 1: Khách hàng sử dụng điểm
-                    int diemHienTai = KhachHangQuery.getSoDiemTichLuy(maKH, conn);
-                    int phanTramGiam = Math.min(diemHienTai / 100, 20); // 100 điểm = 1%, tối đa 20%
-                    int soDiemCanDung = phanTramGiam * 100;
-
-                    if (soDiemCanDung > 0) {
-                        // Ghi nhận giao dịch trừ điểm. Trigger sẽ tự cập nhật tổng điểm của khách.
-                        KhachHangQuery.suDungDiemThuong(maKH, maHDXGenerated, soDiemCanDung, conn);
-                    }
+                if (suDungDiem && soDiemCanDung > 0) {
+                    // Trừ điểm đã sử dụng
+                    KhachHangQuery.suDungDiemThuong(maKH, maHDXGenerated, soDiemCanDung, conn);
                 } else {
-                    // Kịch bản 2: Khách hàng tích điểm cho hóa đơn này
-                    // Quy tắc: 10,000 VND = 1 điểm.
+                    // Cộng điểm tích lũy mới
+                    // Tích điểm dựa trên tổng tiền gốc (trước thuế, trước giảm giá)
                     int diemMoi = tongTienGoc.divide(new BigDecimal("10000"), 0, RoundingMode.DOWN).intValue();
                     if (diemMoi > 0) {
-                        // Ghi nhận giao dịch cộng điểm. Trigger sẽ tự cập nhật tổng điểm của khách.
                         KhachHangQuery.themDiemThuong(maKH, maHDXGenerated, diemMoi, conn);
                     }
                 }
             }
 
-            // KẾT THÚC TRANSACTION
-            conn.commit();
+            // --- KẾT THÚC TRANSACTION ---
+            conn.commit(); // Lưu tất cả các thay đổi nếu không có lỗi
             return maHDXGenerated;
 
         } catch (SQLException e) {
             e.printStackTrace();
             if (conn != null) {
                 try {
-                    conn.rollback(); // Nếu có lỗi, hủy bỏ tất cả
+                    conn.rollback(); // Nếu có lỗi, hủy bỏ tất cả thay đổi trong transaction
                 } catch (SQLException ex) {
                     ex.printStackTrace();
                 }
             }
-            JOptionPane.showMessageDialog(null, "Lỗi khi xử lý giao dịch:\n" + e.getMessage(), "Lỗi Cơ Sở Dữ Liệu", JOptionPane.ERROR_MESSAGE);
+            // Hiển thị thông báo lỗi thân thiện hơn cho người dùng
+            String errorMessage = e.getMessage().contains("đã được bán") ? e.getMessage() : "Lỗi khi xử lý giao dịch. Vui lòng thử lại.";
+            JOptionPane.showMessageDialog(null, errorMessage, "Lỗi Cơ Sở Dữ Liệu", JOptionPane.ERROR_MESSAGE);
             return null;
         } finally {
             if (conn != null) {
                 try {
-                    conn.setAutoCommit(true); // Trả lại trạng thái mặc định
+                    conn.setAutoCommit(true); // Trả lại trạng thái mặc định cho connection
                     conn.close();
                 } catch (SQLException e) {
                     e.printStackTrace();
