@@ -11,10 +11,11 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
+
 public class TraGopKHView extends JFrame {
     private static final long serialVersionUID = 1L;
 
@@ -33,10 +34,9 @@ public class TraGopKHView extends JFrame {
     private JLabel lblTienGoc, lblTienTraHangThang;
     private JButton btnDangKy;
 
-    // --- State & Helpers ---
     private final int maKH;
     private final NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
-    private HoaDonXuat currentInvoice = null; // Cache for the current valid invoice
+    private HoaDonXuat currentInvoice = null;
 
     public TraGopKHView(int maKH) {
         this.maKH = maKH;
@@ -62,15 +62,14 @@ public class TraGopKHView extends JFrame {
         lblTitle.setForeground(PRIMARY_COLOR);
         gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2; gbc.insets.bottom = 20;
         panel.add(lblTitle, gbc);
-        gbc.insets.bottom = 8; // Reset
+        gbc.insets.bottom = 8;
 
         txtMaHDX = new JTextField(15);
         txtSoThang = new JTextField(15);
         txtLaiSuat = new JTextField(15);
         lblTienGoc = new JLabel(currencyFormatter.format(0));
         lblTienTraHangThang = new JLabel(currencyFormatter.format(0));
-        
-        // Style components
+
         styleTextField(txtMaHDX);
         styleTextField(txtSoThang);
         styleTextField(txtLaiSuat);
@@ -80,14 +79,14 @@ public class TraGopKHView extends JFrame {
         int row = 1;
         addField(panel, gbc, "Mã hóa đơn xuất*:", txtMaHDX, row++);
         addField(panel, gbc, "Số tháng trả góp*:", txtSoThang, row++);
-        addField(panel, gbc, "Lãi suất (%/tháng)*:", txtLaiSuat, row++);
+        addField(panel, gbc, "Lãi suất (%/năm)*:", txtLaiSuat, row++);
         addField(panel, gbc, "Tiền gốc:", lblTienGoc, row++);
         addField(panel, gbc, "Trả hàng tháng (dự kiến):", lblTienTraHangThang, row++);
 
         gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER; gbc.fill = GridBagConstraints.NONE;
         panel.add(createButtonPanel(), gbc);
-        
+
         addEventListeners();
         setContentPane(panel);
     }
@@ -101,11 +100,11 @@ public class TraGopKHView extends JFrame {
         gbc.gridx = 1; gbc.weightx = 0.7; gbc.anchor = GridBagConstraints.LINE_START;
         panel.add(field, gbc);
     }
-    
+
     private JPanel createButtonPanel() {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 15));
         buttonPanel.setOpaque(false);
-        
+
         btnDangKy = createStyledButton("Đăng Ký Trả Góp", SUCCESS_COLOR);
         JButton btnBack = createStyledButton("Trở Về", SECONDARY_COLOR);
 
@@ -115,29 +114,32 @@ public class TraGopKHView extends JFrame {
         btnBack.addActionListener(e -> dispose());
         return buttonPanel;
     }
-    
-    private void addEventListeners() {
-        DocumentListener recalculateListener = new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { updateMonthlyPaymentDisplay(); }
-            @Override public void removeUpdate(DocumentEvent e) { updateMonthlyPaymentDisplay(); }
-            @Override public void changedUpdate(DocumentEvent e) { updateMonthlyPaymentDisplay(); }
-        };
 
-        // Chỉ txtMaHDX mới cần truy vấn CSDL
-        txtMaHDX.getDocument().addDocumentListener(new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { fetchInvoiceDetails(); }
-            @Override public void removeUpdate(DocumentEvent e) { fetchInvoiceDetails(); }
-            @Override public void changedUpdate(DocumentEvent e) { fetchInvoiceDetails(); }
-        });
+    private void addEventListeners() {
+        // *** SỬA LỖI 2: Triển khai DocumentListener một cách đầy đủ ***
+        DocumentListener recalculateListener = new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                updateMonthlyPaymentDisplay();
+            }
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                updateMonthlyPaymentDisplay();
+            }
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                updateMonthlyPaymentDisplay();
+            }
+        };
         
-        // Các ô khác chỉ cần tính toán lại
+        txtMaHDX.getDocument().addDocumentListener(recalculateListener);
         txtSoThang.getDocument().addDocumentListener(recalculateListener);
         txtLaiSuat.getDocument().addDocumentListener(recalculateListener);
 
         btnDangKy.addActionListener(e -> xuLyDangKy());
     }
     
-    // --- Styling Helper Methods ---
+    // --- Các phương thức Styling giữ nguyên ---
     private void styleTextField(JTextField tf) {
         tf.setFont(FONT_INPUT);
         tf.setBorder(BorderFactory.createCompoundBorder(
@@ -145,12 +147,10 @@ public class TraGopKHView extends JFrame {
             new EmptyBorder(7, 10, 7, 10)
         ));
     }
-
     private void styleResultLabel(JLabel label, Color color, int style) {
         label.setFont(FONT_INPUT.deriveFont(style));
         label.setForeground(color);
     }
-
     private JButton createStyledButton(String text, Color color) {
         JButton btn = new JButton(text);
         btn.setFont(FONT_BUTTON);
@@ -161,97 +161,100 @@ public class TraGopKHView extends JFrame {
         btn.setBorder(new EmptyBorder(10, 25, 10, 25));
         return btn;
     }
-    
+
     // --- Logic Methods ---
 
-    private void fetchInvoiceDetails() {
+    private void updateMonthlyPaymentDisplay() {
         String maHDXStr = txtMaHDX.getText().trim();
-        if (maHDXStr.isEmpty()) {
+        String soThangStr = txtSoThang.getText().trim();
+        String laiSuatStr = txtLaiSuat.getText().trim();
+
+        // Kiểm tra và fetch hóa đơn
+        try {
+            int maHDX = Integer.parseInt(maHDXStr);
+            // Chỉ fetch lại nếu MaHDX thay đổi
+            if (currentInvoice == null || currentInvoice.getMaHDX() != maHDX) {
+                fetchInvoiceDetails(maHDX);
+                return; // Chờ fetch xong, fetch sẽ gọi lại hàm này
+            }
+        } catch (NumberFormatException e) {
             currentInvoice = null;
-            updateMonthlyPaymentDisplay();
+            styleResultLabel(lblTienGoc, ERROR_COLOR, Font.ITALIC);
+            lblTienGoc.setText(maHDXStr.isEmpty() ? currencyFormatter.format(0) : "Mã HĐ phải là số");
+            lblTienTraHangThang.setText(currencyFormatter.format(0));
             return;
         }
 
-        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-        
-        new SwingWorker<HoaDonXuat, Void>() {
-            @Override
-            protected HoaDonXuat doInBackground() throws Exception {
-                int maHDX = Integer.parseInt(maHDXStr);
-                return HoaDonXuatQuery.getHoaDonById(maHDX);
-            }
-            
-            @Override
-            protected void done() {
-                try {
-                    currentInvoice = get();
-                    if (currentInvoice == null || currentInvoice.getMaKH() != maKH) {
-                        currentInvoice = null; // Vô hiệu hóa hóa đơn nếu không hợp lệ
-                        styleResultLabel(lblTienGoc, ERROR_COLOR, Font.ITALIC);
-                        lblTienGoc.setText("HĐ không hợp lệ");
-                    } else {
-                        styleResultLabel(lblTienGoc, PRIMARY_COLOR, Font.BOLD);
-                    }
-                } catch (NumberFormatException e) {
-                    currentInvoice = null;
-                    styleResultLabel(lblTienGoc, ERROR_COLOR, Font.ITALIC);
-                    lblTienGoc.setText("Mã HĐ phải là số");
-                } catch (Exception e) {
-                    currentInvoice = null;
-                    styleResultLabel(lblTienGoc, ERROR_COLOR, Font.ITALIC);
-                    lblTienGoc.setText("Lỗi tải HĐ");
-                    e.printStackTrace();
-                } finally {
-                    updateMonthlyPaymentDisplay(); // Luôn cập nhật lại hiển thị
-                    setCursor(Cursor.getDefaultCursor());
-                }
-            }
-        }.execute();
-    }
-
-    private void updateMonthlyPaymentDisplay() {
+        // Nếu HĐ không hợp lệ, dừng lại
         if (currentInvoice == null) {
-            if (txtMaHDX.getText().trim().isEmpty()) {
-                 styleResultLabel(lblTienGoc, PRIMARY_COLOR, Font.BOLD);
-                 lblTienGoc.setText(currencyFormatter.format(0));
-            }
+            return;
+        }
+        
+        // Cập nhật tiền gốc
+        lblTienGoc.setText(currencyFormatter.format(currentInvoice.getThanhTien()));
+
+        // Kiểm tra các ô còn lại để tính toán
+        if (soThangStr.isEmpty() || laiSuatStr.isEmpty()) {
             lblTienTraHangThang.setText(currencyFormatter.format(0));
             return;
         }
 
         try {
-            String soThangStr = txtSoThang.getText().trim();
-            String laiSuatStr = txtLaiSuat.getText().trim();
+            int soThang = Integer.parseInt(soThangStr);
+            BigDecimal laiSuatNam = new BigDecimal(laiSuatStr);
 
-            if (soThangStr.isEmpty() || laiSuatStr.isEmpty()) {
+            if (soThang <= 0 || laiSuatNam.compareTo(BigDecimal.ZERO) < 0) {
                 lblTienTraHangThang.setText(currencyFormatter.format(0));
                 return;
             }
 
             BigDecimal tienGoc = currentInvoice.getThanhTien();
-            lblTienGoc.setText(currencyFormatter.format(tienGoc));
+            BigDecimal tienTraHangThang = TraGopQuery.tinhTraGopHangThang(tienGoc, laiSuatNam, soThang);
             
-            int soThang = Integer.parseInt(soThangStr);
-            BigDecimal laiSuatPercent = new BigDecimal(laiSuatStr);
-
-            if (soThang <= 0 || laiSuatPercent.compareTo(BigDecimal.ZERO) < 0) {
-                lblTienTraHangThang.setText(currencyFormatter.format(0));
-                return;
+            if(tienTraHangThang != null) {
+                lblTienTraHangThang.setText(currencyFormatter.format(tienTraHangThang));
+            } else {
+                lblTienTraHangThang.setText("Lỗi tính toán");
             }
-
-            BigDecimal laiSuatDecimal = laiSuatPercent.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
-            BigDecimal tienLaiHangThang = tienGoc.multiply(laiSuatDecimal);
-            BigDecimal tienGocHangThang = tienGoc.divide(new BigDecimal(soThang), 2, RoundingMode.HALF_UP);
-            BigDecimal tienTraHangThang = tienGocHangThang.add(tienLaiHangThang);
-
-            lblTienTraHangThang.setText(currencyFormatter.format(tienTraHangThang));
         } catch (NumberFormatException e) {
             lblTienTraHangThang.setText("Lỗi định dạng số");
         }
     }
 
+    private void fetchInvoiceDetails(int maHDX) {
+        // Tạm thời vô hiệu hóa invoice hiện tại
+        currentInvoice = null; 
+        
+        new SwingWorker<HoaDonXuat, Void>() {
+            @Override
+            protected HoaDonXuat doInBackground() {
+                return HoaDonXuatQuery.getHoaDonById(maHDX);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    HoaDonXuat hdx = get();
+                    if (hdx != null && hdx.getMaKH() == TraGopKHView.this.maKH) {
+                        currentInvoice = hdx;
+                        styleResultLabel(lblTienGoc, PRIMARY_COLOR, Font.BOLD);
+                    } else {
+                        styleResultLabel(lblTienGoc, ERROR_COLOR, Font.ITALIC);
+                        lblTienGoc.setText("HĐ không hợp lệ");
+                    }
+                } catch (Exception e) {
+                    styleResultLabel(lblTienGoc, ERROR_COLOR, Font.ITALIC);
+                    lblTienGoc.setText("Lỗi tải HĐ");
+                    e.printStackTrace();
+                } finally {
+                    // Gọi lại update display để tính toán với invoice mới (hoặc null)
+                    updateMonthlyPaymentDisplay();
+                }
+            }
+        }.execute();
+    }
+
     private void xuLyDangKy() {
-        // Validation đầu vào
         if (currentInvoice == null) {
             JOptionPane.showMessageDialog(this, "Mã hóa đơn không hợp lệ hoặc không thuộc về bạn.", "Lỗi Hóa Đơn", JOptionPane.ERROR_MESSAGE);
             return;
@@ -269,8 +272,7 @@ public class TraGopKHView extends JFrame {
         try {
             soThang = Integer.parseInt(soThangStr);
             laiSuat = new BigDecimal(laiSuatStr);
-            if (soThang <= 0) throw new NumberFormatException();
-            if (laiSuat.compareTo(BigDecimal.ZERO) < 0) throw new NumberFormatException();
+            if (soThang <= 0 || laiSuat.compareTo(BigDecimal.ZERO) < 0) throw new NumberFormatException();
         } catch (NumberFormatException e) {
              JOptionPane.showMessageDialog(this, "Số tháng và Lãi suất phải là số hợp lệ, lớn hơn hoặc bằng 0.", "Lỗi Định Dạng Số", JOptionPane.ERROR_MESSAGE);
             return;
@@ -279,7 +281,7 @@ public class TraGopKHView extends JFrame {
         btnDangKy.setEnabled(false);
         setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
         
-        new SwingWorker<Integer, String>() {
+        new SwingWorker<Integer, Void>() {
             @Override
             protected Integer doInBackground() throws Exception {
                 BigDecimal tienGoc = currentInvoice.getThanhTien();
@@ -287,7 +289,7 @@ public class TraGopKHView extends JFrame {
                     throw new Exception("Hóa đơn này chưa có thành tiền, không thể trả góp.");
                 }
                 
-                TraGop tg = new TraGop(0, currentInvoice.getMaHDX(), soThang, laiSuat, tienGoc, LocalDate.now(), false);
+                TraGop tg = new TraGop(currentInvoice.getMaHDX(), soThang, laiSuat, tienGoc, LocalDate.now(), false);
                 return TraGopQuery.insertPhieuTraGopAndGetId(tg);
             }
 
@@ -302,8 +304,9 @@ public class TraGopKHView extends JFrame {
                         JOptionPane.showMessageDialog(TraGopKHView.this, "Đăng ký thất bại!\nCó thể hóa đơn này đã được đăng ký trả góp.", "Đăng Ký Thất Bại", JOptionPane.ERROR_MESSAGE);
                     }
                 } catch (Exception e) {
-                    JOptionPane.showMessageDialog(TraGopKHView.this, "Lỗi khi xử lý đăng ký: " + e.getMessage(), "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE);
-                    e.printStackTrace();
+                    Throwable cause = (e instanceof ExecutionException) ? e.getCause() : e;
+                    JOptionPane.showMessageDialog(TraGopKHView.this, "Lỗi khi xử lý đăng ký: " + cause.getMessage(), "Lỗi Hệ Thống", JOptionPane.ERROR_MESSAGE);
+                    cause.printStackTrace();
                 } finally {
                     btnDangKy.setEnabled(true);
                     setCursor(Cursor.getDefaultCursor());
@@ -316,6 +319,5 @@ public class TraGopKHView extends JFrame {
         txtMaHDX.setText("");
         txtSoThang.setText("");
         txtLaiSuat.setText("");
-        // currentInvoice sẽ tự động được reset thành null khi txtMaHDX được xóa
     }
 }

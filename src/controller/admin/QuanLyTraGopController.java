@@ -32,10 +32,6 @@ public class QuanLyTraGopController {
             }
         }.execute();
     }
-
-    /**
-     * Lọc danh sách theo trạng thái đã chọn.
-     */
     public void filterByStatus(String status) {
         Boolean isCompleted;
         switch (status) {
@@ -66,10 +62,6 @@ public class QuanLyTraGopController {
             }
         }.execute();
     }
-
-    /**
-     * Tìm kiếm phiếu trả góp theo Mã Hóa Đơn.
-     */
     public void searchByInvoiceId(String maHDXStr) {
         if (maHDXStr == null || maHDXStr.trim().isEmpty()) {
             loadInstallments(); // Nếu trống thì tải lại tất cả

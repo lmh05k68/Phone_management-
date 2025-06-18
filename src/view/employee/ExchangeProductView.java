@@ -27,7 +27,6 @@ public class ExchangeProductView extends JDialog {
     }
 
     private void initUI(String maSPCuThe_Cu, BigDecimal oldProductPrice) {
-        // --- Sử dụng JPanel chính với BorderLayout ---
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
         
