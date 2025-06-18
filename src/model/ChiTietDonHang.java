@@ -1,5 +1,7 @@
-package model; 
+package model;
+
 import java.math.BigDecimal;
+
 public class ChiTietDonHang {
     private String maSPCuThe;
     private String tenSP;
@@ -18,14 +20,8 @@ public class ChiTietDonHang {
     public String getTenSP() { return tenSP; }
     public String getMau() { return mau; }
     public BigDecimal getGiaXuat() { return giaXuat; }
-
     @Override
     public String toString() {
-        return "ChiTietDonHangDTO{" +
-                "maSPCuThe='" + maSPCuThe + '\'' +
-                ", tenSP='" + tenSP + '\'' +
-                ", mau='" + mau + '\'' +
-                ", giaXuat=" + giaXuat +
-                '}';
+         return String.format("%s (Mã: %s)", tenSP, maSPCuThe);
     }
 }

@@ -12,15 +12,11 @@ public class EmployeeView extends JFrame {
 
     private static final long serialVersionUID = 1L;
     private final int maNV;
-
-    // --- Các thành phần UI ---
     private JLabel lblTitle; // MỚI: Khai báo ở đây để có thể truy cập từ các phương thức khác
     private JButton btnLogout;
     private JButton btnCapNhatThongTinNV;
     private JButton btnBanHang, btnXemYeuCauDoiTra, btnNhapHang;
     private JButton btnQuanLyKhachHang, btnQuanLyBaoHanh;
-
-    // --- Hằng số màu sắc ---
     private final Color FUNCTION_BUTTON_COLOR = new Color(0, 123, 255);
     private final Color DANGER_ACTION_COLOR = new Color(220, 53, 69);
 

@@ -15,13 +15,10 @@ public class SanPhamQuery {
     private static final Logger logger = Logger.getLogger(SanPhamQuery.class.getName());
     public static List<SanPham> getAllWithTonKho() {
         List<SanPham> dsSP = new ArrayList<>();
-        String sql = "SELECT " +
-                     "  sp.MaSP, sp.TenSP, sp.Mau, sp.GiaNiemYet, sp.NuocSX, sp.HangSX, " +
-                     "  COUNT(spct.MaSPCuThe) AS SoLuongTon " +
-                     "FROM SanPham sp " +
-                     "LEFT JOIN SanPhamCuThe spct ON sp.MaSP = spct.MaSP AND spct.TrangThai = 'Trong Kho' " +
-                     "GROUP BY sp.MaSP, sp.TenSP, sp.Mau, sp.GiaNiemYet, sp.NuocSX, sp.HangSX " +
-                     "ORDER BY sp.TenSP ASC";
+        // Lấy trực tiếp cột SoLuong, không cần JOIN và COUNT phức tạp
+        String sql = "SELECT MaSP, TenSP, Mau, GiaNiemYet, NuocSX, HangSX, SoLuong " +
+                     "FROM SanPham " +
+                     "ORDER BY TenSP ASC";
 
         try (Connection conn = DBConnection.getConnection();
              Statement stmt = conn.createStatement();
@@ -36,7 +33,7 @@ public class SanPhamQuery {
                         rs.getString("NuocSX"),
                         rs.getString("HangSX")
                 );
-                sp.setSoLuongTon(rs.getInt("SoLuongTon"));
+                sp.setSoLuongTon(rs.getInt("SoLuong"));
                 dsSP.add(sp);
             }
         } catch (SQLException e) {
@@ -44,11 +41,6 @@ public class SanPhamQuery {
         }
         return dsSP;
     }
-
-    /**
-     * Lấy danh sách tất cả sản phẩm (không bao gồm tồn kho).
-     * @return Danh sách sản phẩm.
-     */
     public static List<SanPham> getAll() {
         List<SanPham> dsSP = new ArrayList<>();
         String sql = "SELECT MaSP, TenSP, Mau, GiaNiemYet, NuocSX, HangSX FROM SanPham ORDER BY TenSP ASC";
@@ -70,13 +62,8 @@ public class SanPhamQuery {
         }
         return dsSP;
     }
-
-    /**
-     * Thêm một sản phẩm mới vào CSDL và trả về ID được tạo tự động.
-     * @param sp Đối tượng SanPham chứa thông tin cần thêm.
-     * @return ID của sản phẩm mới nếu thành công, ngược lại trả về null.
-     */
     public static Integer insertSanPhamAndGetId(SanPham sp) {
+        // Cột SoLuong sẽ có giá trị DEFAULT là 0 theo định nghĩa bảng
         String sql = "INSERT INTO SanPham (TenSP, Mau, GiaNiemYet, NuocSX, HangSX) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -106,21 +93,9 @@ public class SanPhamQuery {
         }
         return null;
     }
-
-    /**
-     * Thêm một sản phẩm mới vào CSDL.
-     * Phương thức này được tối ưu bằng cách gọi lại phương thức insertSanPhamAndGetId đã có.
-     * @param sp Đối tượng SanPham chứa thông tin cần thêm.
-     * @return true nếu thêm thành công, false nếu thất bại.
-     */
     public static boolean insertSanPham(SanPham sp) {
         return insertSanPhamAndGetId(sp) != null;
     }
-
-    /**
-     * Cập nhật thông tin một sản phẩm đã có trong CSDL.
-     * @return true nếu cập nhật thành công, false nếu thất bại.
-     */
     public static boolean updateSanPham(SanPham sp) {
         String sql = "UPDATE SanPham SET TenSP = ?, Mau = ?, GiaNiemYet = ?, NuocSX = ?, HangSX = ? WHERE MaSP = ?";
         try (Connection conn = DBConnection.getConnection();
